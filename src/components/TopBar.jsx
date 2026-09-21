@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Settings, LogOut, UserCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import SealLogo from './SealLogo'
 import SettingsModal from './SettingsModal'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 
@@ -28,12 +27,9 @@ export default function TopBar() {
 
       <div className="relative flex items-center justify-between px-6 py-5 sm:px-10">
         <div className="flex items-center gap-4">
-          <SealLogo size={52} />
           <div>
-            <div className="text-2xl font-extrabold tracking-wide text-[var(--text-primary)]">
-              STS
-            </div>
-            <div className="-mt-1 text-[11px] font-medium tracking-[0.2em] text-[var(--text-accent)]">
+            <div className="text-3xl font-extrabold tracking-wide text-sky-400">STS</div>
+            <div className="-mt-1 text-[11px] font-medium tracking-[0.2em] text-[var(--text-faint)]">
               SOIL TESTING SIAM
             </div>
           </div>
