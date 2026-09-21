@@ -1,9 +1,20 @@
+import { useState } from 'react'
 import { Settings, LogOut, UserCircle2, ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import SealLogo from './SealLogo'
+import SettingsModal from './SettingsModal'
+import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 
 export default function TopBar({ showBack = false, pageTitle }) {
   const navigate = useNavigate()
+  const currentUser = useCurrentUser()
+  const logout = useAuthStore((s) => s.logout)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  function handleSignOut() {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="relative">
@@ -20,7 +31,7 @@ export default function TopBar({ showBack = false, pageTitle }) {
           {showBack && (
             <button
               onClick={() => navigate('/')}
-              className="mr-1 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10"
+              className="mr-1 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
               aria-label="กลับหน้าหลัก"
             >
               <ArrowLeft size={18} />
@@ -28,35 +39,45 @@ export default function TopBar({ showBack = false, pageTitle }) {
           )}
           <SealLogo size={52} />
           <div>
-            <div className="text-2xl font-extrabold tracking-wide text-white">
+            <div className="text-2xl font-extrabold tracking-wide text-[var(--text-primary)]">
               STS
             </div>
-            <div className="-mt-1 text-[11px] font-medium tracking-[0.2em] text-blue-300/70">
+            <div className="-mt-1 text-[11px] font-medium tracking-[0.2em] text-[var(--text-accent)]">
               {pageTitle ? pageTitle.toUpperCase() : 'SOIL TESTING SIAM'}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2">
-            <UserCircle2 size={30} className="text-white/70" />
+          <div className="flex items-center gap-3 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2">
+            <UserCircle2 size={30} className="text-[var(--text-secondary)]" />
             <div className="leading-tight">
-              <div className="text-sm font-semibold text-white">Jansogood1436</div>
-              <div className="text-[11px] text-white/40">user profile</div>
+              <div className="text-sm font-semibold text-[var(--text-primary)]">
+                {currentUser?.username ?? '-'}
+              </div>
+              <div className="text-[11px] text-[var(--text-faint)]">
+                {currentUser?.role === 'Admin' ? 'administrator' : 'user profile'}
+              </div>
             </div>
           </div>
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10"
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
             aria-label="ตั้งค่า"
           >
             <Settings size={18} />
           </button>
-          <button className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10">
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+          >
             <LogOut size={16} />
             Sign out
           </button>
         </div>
       </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   )
 }

@@ -19,13 +19,13 @@ export default function Reports() {
 
   return (
     <PageShell title="รายงาน (Reports)">
-      <div className="mb-6 flex gap-2 border-b border-white/10">
+      <div className="mb-6 flex gap-2 border-b border-[var(--border-color)]">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`border-b-2 px-4 py-3 text-sm font-semibold transition ${
-              tab === t.key ? 'border-blue-500 text-white' : 'border-transparent text-white/40 hover:text-white/70'
+              tab === t.key ? 'border-blue-500 text-[var(--text-primary)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
             }`}
           >
             {t.label}
@@ -87,7 +87,7 @@ function ItemLedgerReport() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
           onClick={() => setPickerOpen(true)}
-          className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
+          className="flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
         >
           <PackageSearch size={16} />
           {selected ? `${selected.code} — ${selected.name}` : 'เลือกสินค้า (Product Code)'}
@@ -112,31 +112,31 @@ function ItemLedgerReport() {
       </div>
 
       {!selected && (
-        <div className="rounded-xl border border-dashed border-white/10 bg-[#121828] py-16 text-center text-sm text-white/30">
+        <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] py-16 text-center text-sm text-[var(--text-faint)]">
           กรุณาเลือกสินค้าเพื่อดูรายงานรายตัว
         </div>
       )}
 
       {selected && ledger && (
-        <div ref={printRef} className="rounded-xl border border-white/10 bg-[#121828] p-5">
+        <div ref={printRef} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
           <div className="mb-4">
-            <div className="text-lg font-bold text-white">{selected.code} — {selected.name}</div>
-            <div className="text-xs text-white/40">หมวดหมู่: {selected.category || '-'} • หน่วย: {selected.unit || '-'}</div>
+            <div className="text-lg font-bold text-[var(--text-primary)]">{selected.code} — {selected.name}</div>
+            <div className="text-xs text-[var(--text-muted)]">หมวดหมู่: {selected.category || '-'} • หน่วย: {selected.unit || '-'}</div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-white/10">
+          <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
             <table className="w-full min-w-[1100px] text-xs">
               <thead>
-                <tr className="bg-white/5 text-left text-white/60">
-                  <th rowSpan={2} className="border-b border-white/10 px-2 py-2 align-bottom">วันที่</th>
-                  <th rowSpan={2} className="border-b border-white/10 px-2 py-2 align-bottom">เลขเอกสาร</th>
-                  <th colSpan={3} className="border-b border-white/10 px-2 py-2 text-center text-orange-300">รายการรับ</th>
-                  <th colSpan={3} className="border-b border-white/10 px-2 py-2 text-center text-sky-300">รายการจ่าย</th>
-                  <th colSpan={2} className="border-b border-white/10 px-2 py-2 text-center text-emerald-300">คงเหลือ</th>
-                  <th rowSpan={2} className="border-b border-white/10 px-2 py-2 align-bottom">ผู้ขาย/ลูกค้า</th>
-                  <th rowSpan={2} className="border-b border-white/10 px-2 py-2 align-bottom">รายละเอียด/หมายเหตุ</th>
+                <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
+                  <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">วันที่</th>
+                  <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">เลขเอกสาร</th>
+                  <th colSpan={3} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-orange-300">รายการรับ</th>
+                  <th colSpan={3} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-sky-300">รายการจ่าย</th>
+                  <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-emerald-300">คงเหลือ</th>
+                  <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">ผู้ขาย/ลูกค้า</th>
+                  <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">รายละเอียด/หมายเหตุ</th>
                 </tr>
-                <tr className="bg-white/5 text-right text-white/50">
+                <tr className="bg-[var(--bg-surface-soft)] text-right text-[var(--text-muted)]">
                   <th className="px-2 py-1.5">จำนวน</th>
                   <th className="px-2 py-1.5">ราคา</th>
                   <th className="px-2 py-1.5">มูลค่า</th>
@@ -148,14 +148,14 @@ function ItemLedgerReport() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-t border-white/10 bg-white/5 text-white/70">
+                <tr className="border-t border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
                   <td className="px-2 py-2 font-semibold" colSpan={8}>ยอดยกมา</td>
                   <td className="px-2 py-2 text-right font-semibold">{formatNumber(ledger.opening.qty)}</td>
                   <td className="px-2 py-2 text-right font-semibold">{formatMoney(ledger.opening.value)}</td>
                   <td colSpan={2}></td>
                 </tr>
                 {ledger.rows.map((r, idx) => (
-                  <tr key={idx} className="border-t border-white/5 text-white/85 hover:bg-white/5">
+                  <tr key={idx} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                     <td className="whitespace-nowrap px-2 py-2">{r.date}</td>
                     <td className="px-2 py-2">{r.docNo}</td>
                     <td className="px-2 py-2 text-right">{r.kind === 'in' ? formatNumber(r.qty) : ''}</td>
@@ -166,8 +166,8 @@ function ItemLedgerReport() {
                     <td className="px-2 py-2 text-right">{r.kind === 'out' ? formatMoney(r.value) : ''}</td>
                     <td className="px-2 py-2 text-right font-medium">{formatNumber(r.balanceQty)}</td>
                     <td className="px-2 py-2 text-right font-medium">{formatMoney(r.balanceValue)}</td>
-                    <td className="px-2 py-2 text-white/60">{r.party}</td>
-                    <td className="px-2 py-2 text-white/50">
+                    <td className="px-2 py-2 text-[var(--text-secondary)]">{r.party}</td>
+                    <td className="px-2 py-2 text-[var(--text-muted)]">
                       {r.note}
                       {r.kind === 'out' && r.isReservation && (
                         <span className="ml-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
@@ -179,7 +179,7 @@ function ItemLedgerReport() {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t border-white/10 bg-white/5 text-white">
+                <tr className="border-t border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-primary)]">
                   <td className="px-2 py-2.5 font-bold" colSpan={8}>รวมคงเหลือ</td>
                   <td className="px-2 py-2.5 text-right font-bold">{formatNumber(ledger.closing.qty)}</td>
                   <td className="px-2 py-2.5 text-right font-bold">{formatMoney(ledger.closing.value)}</td>
@@ -258,16 +258,16 @@ function AllStockSummaryReport() {
 
   return (
     <div>
-      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-white/10 bg-[#121828] p-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex items-center gap-2 text-white/50">
+          <div className="flex items-center gap-2 text-[var(--text-muted)]">
             <CalendarRange size={16} />
             <span className="text-xs">ช่วงวันที่</span>
           </div>
           <div className="w-40">
             <DateTextInput value={from} onChange={setFrom} />
           </div>
-          <span className="pb-2 text-white/30">—</span>
+          <span className="pb-2 text-[var(--text-faint)]">—</span>
           <div className="w-40">
             <DateTextInput value={to} onChange={setTo} />
           </div>
@@ -288,22 +288,22 @@ function AllStockSummaryReport() {
         </div>
       </div>
 
-      <div ref={printRef} className="rounded-xl border border-white/10 bg-[#121828] p-5">
-        <div className="mb-4 text-sm text-white/50">
+      <div ref={printRef} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
+        <div className="mb-4 text-sm text-[var(--text-muted)]">
           รายงานสินค้าคงเหลือรวมทุกคลัง: {from} - {to} (เรียงตาม รหัส/ชื่อสินค้า A-Z / ก-ฮ)
         </div>
-        <div className="overflow-x-auto rounded-lg border border-white/10">
+        <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
           <table className="w-full min-w-[980px] text-xs">
             <thead>
-              <tr className="bg-white/5 text-left text-white/60">
-                <th rowSpan={2} className="border-b border-white/10 px-2 py-2 align-bottom">รหัส</th>
-                <th rowSpan={2} className="border-b border-white/10 px-2 py-2 align-bottom">ชื่อสินค้า</th>
-                <th colSpan={2} className="border-b border-white/10 px-2 py-2 text-center">ยอดยกมา</th>
-                <th colSpan={2} className="border-b border-white/10 px-2 py-2 text-center text-orange-300">ซื้อ/รับเข้า</th>
-                <th colSpan={2} className="border-b border-white/10 px-2 py-2 text-center text-sky-300">ออก/จ่ายออก</th>
-                <th colSpan={2} className="border-b border-white/10 px-2 py-2 text-center text-emerald-300">คงเหลือ</th>
+              <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
+                <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">รหัส</th>
+                <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">ชื่อสินค้า</th>
+                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center">ยอดยกมา</th>
+                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-orange-300">ซื้อ/รับเข้า</th>
+                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-sky-300">ออก/จ่ายออก</th>
+                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-emerald-300">คงเหลือ</th>
               </tr>
-              <tr className="bg-white/5 text-right text-white/50">
+              <tr className="bg-[var(--bg-surface-soft)] text-right text-[var(--text-muted)]">
                 <th className="px-2 py-1.5">จำนวน</th>
                 <th className="px-2 py-1.5">เป็นเงิน</th>
                 <th className="px-2 py-1.5">จำนวน</th>
@@ -316,8 +316,8 @@ function AllStockSummaryReport() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.code} className="border-t border-white/5 text-white/85 hover:bg-white/5">
-                  <td className="px-2 py-2 font-mono text-blue-300">{r.code}</td>
+                <tr key={r.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
+                  <td className="px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
                   <td className="px-2 py-2">{r.name}</td>
                   <td className="px-2 py-2 text-right">{formatNumber(r.opening.qty)}</td>
                   <td className="px-2 py-2 text-right">{formatMoney(r.opening.value)}</td>
@@ -331,12 +331,12 @@ function AllStockSummaryReport() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-white/30">ไม่มีข้อมูลสินค้า</td>
+                  <td colSpan={10} className="px-4 py-8 text-center text-[var(--text-faint)]">ไม่มีข้อมูลสินค้า</td>
                 </tr>
               )}
             </tbody>
             <tfoot>
-              <tr className="border-t border-white/10 bg-white/5 text-white">
+              <tr className="border-t border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-primary)]">
                 <td className="px-2 py-2.5 font-bold" colSpan={3}>รวมเงิน</td>
                 <td className="px-2 py-2.5 text-right font-bold">{formatMoney(totals.openingValue)}</td>
                 <td></td>

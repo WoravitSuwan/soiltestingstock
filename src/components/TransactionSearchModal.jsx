@@ -76,7 +76,7 @@ export default function TransactionSearchModal({ open, onClose }) {
     <Modal open={open} onClose={onClose} title="ค้นหา / แก้ไข / ลบ รายการเข้า-ออก" wide>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -95,8 +95,8 @@ export default function TransactionSearchModal({ open, onClose }) {
               onClick={() => setType(opt.key)}
               className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
                 type === opt.key
-                  ? 'border-blue-500/50 bg-blue-500/15 text-blue-300'
-                  : 'border-white/10 text-white/50 hover:bg-white/5'
+                  ? 'border-blue-500/50 bg-blue-500/15 text-[var(--text-accent)]'
+                  : 'border-[var(--border-color)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
               }`}
             >
               {opt.label}
@@ -105,10 +105,10 @@ export default function TransactionSearchModal({ open, onClose }) {
         </div>
       </div>
 
-      <div className="max-h-[55vh] overflow-y-auto rounded-xl border border-white/10">
+      <div className="max-h-[55vh] overflow-y-auto rounded-xl border border-[var(--border-color)]">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
-            <tr className="sticky top-0 bg-[#171f31] text-left text-white/60">
+            <tr className="sticky top-0 bg-[var(--bg-card-alt)] text-left text-[var(--text-secondary)]">
               <th className="px-3 py-3 font-medium">ประเภท</th>
               <th className="px-3 py-3 font-medium">วันที่</th>
               <th className="px-3 py-3 font-medium">รหัสสินค้า</th>
@@ -121,7 +121,7 @@ export default function TransactionSearchModal({ open, onClose }) {
           </thead>
           <tbody>
             {filtered.map((r) => (
-              <tr key={`${r.type}-${r.id}`} className="border-t border-white/5 text-white/85 hover:bg-white/5">
+              <tr key={`${r.type}-${r.id}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                 <td className="px-3 py-3">
                   {r.type === 'in' ? (
                     <span className="flex items-center gap-1 text-orange-400">
@@ -134,17 +134,17 @@ export default function TransactionSearchModal({ open, onClose }) {
                   )}
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap">{r.date}</td>
-                <td className="px-3 py-3 font-mono text-blue-300">{r.productCode}</td>
+                <td className="px-3 py-3 font-mono text-[var(--text-accent)]">{r.productCode}</td>
                 <td className="px-3 py-3">{r.productName}</td>
-                <td className="px-3 py-3 text-white/60">{r.docNo || '-'}</td>
+                <td className="px-3 py-3 text-[var(--text-secondary)]">{r.docNo || '-'}</td>
                 <td className="px-3 py-3 text-right">{formatNumber(r.qty)}</td>
                 <td className="px-3 py-3 text-right font-semibold">{formatMoney(r.total)}</td>
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => handleEdit(r)} className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white">
+                    <button onClick={() => handleEdit(r)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]">
                       <Pencil size={15} />
                     </button>
-                    <button onClick={() => handleDelete(r)} className="rounded-md p-1.5 text-white/50 hover:bg-red-500/20 hover:text-red-400">
+                    <button onClick={() => handleDelete(r)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-red-500/15 hover:text-red-400">
                       <Trash2 size={15} />
                     </button>
                   </div>
@@ -153,7 +153,7 @@ export default function TransactionSearchModal({ open, onClose }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-white/30">
+                <td colSpan={8} className="px-4 py-8 text-center text-[var(--text-faint)]">
                   ไม่พบรายการ
                 </td>
               </tr>

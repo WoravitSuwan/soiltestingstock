@@ -20,7 +20,7 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
   return (
     <Modal open={open} onClose={onClose} title="เลือกสินค้า (Product Code)">
       <div className="relative mb-4">
-        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
         <input
           autoFocus
           value={query}
@@ -29,7 +29,7 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
           className={inputClass('pl-9')}
         />
       </div>
-      <div className="max-h-80 overflow-y-auto rounded-lg border border-white/10">
+      <div className="max-h-80 overflow-y-auto rounded-lg border border-[var(--border-color)]">
         {filtered.map((p) => (
           <button
             key={p.code}
@@ -37,16 +37,16 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
               onPick(p)
               onClose()
             }}
-            className="flex w-full items-center justify-between border-b border-white/5 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/5"
+            className="flex w-full items-center justify-between border-b border-[var(--border-color-soft)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[var(--bg-hover)]"
           >
             <div>
-              <div className="font-mono text-sm text-blue-300">{p.code}</div>
-              <div className="text-sm text-white/80">{p.name}</div>
+              <div className="font-mono text-sm text-[var(--text-accent)]">{p.code}</div>
+              <div className="text-sm text-[var(--text-secondary)]">{p.name}</div>
             </div>
-            <div className="text-xs text-white/40">{p.unit}</div>
+            <div className="text-xs text-[var(--text-muted)]">{p.unit}</div>
           </button>
         ))}
-        {filtered.length === 0 && <div className="px-4 py-8 text-center text-sm text-white/30">ไม่พบสินค้า</div>}
+        {filtered.length === 0 && <div className="px-4 py-8 text-center text-sm text-[var(--text-faint)]">ไม่พบสินค้า</div>}
       </div>
     </Modal>
   )

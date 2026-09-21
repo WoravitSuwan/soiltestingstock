@@ -13,7 +13,7 @@ export default {
         gold: '#D4AF37',
       },
       boxShadow: {
-        card: '0 10px 30px -10px rgba(0,0,0,0.6)',
+        card: '0 10px 30px -10px var(--shadow-color)',
       },
     },
   },
