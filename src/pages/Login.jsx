@@ -101,7 +101,7 @@ export default function Login() {
                   autoFocus
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="เช่น Jansogood1436"
+                  placeholder="username"
                   className={inputClass('pl-9')}
                   required
                 />
@@ -161,11 +161,7 @@ export default function Login() {
             </button>
           </form>
 
-          {mode === 'login' && (
-            <p className="mt-5 text-center text-xs text-[var(--text-faint)]">
-              บัญชีผู้ดูแลระบบเริ่มต้น: <span className="text-[var(--text-muted)]">Jansogood1436</span>
-            </p>
-          )}
+
         </div>
       </div>
     </div>
