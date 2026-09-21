@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { FileSpreadsheet, FileDown, PackageSearch, CalendarRange } from 'lucide-react'
-import PageShell from '../components/PageShell'
+import SidebarLayout from '../components/SidebarLayout'
 import ProductPickerModal from '../components/ProductPickerModal'
 import DateTextInput from '../components/DateTextInput'
 import { useStore } from '../store/useStore'
@@ -18,7 +18,7 @@ export default function Reports() {
   const [tab, setTab] = useState('item')
 
   return (
-    <PageShell title="รายงาน (Reports)">
+    <SidebarLayout title="รายงาน (Reports)">
       <div className="mb-6 flex gap-2 border-b border-[var(--border-color)]">
         {TABS.map((t) => (
           <button
@@ -34,7 +34,7 @@ export default function Reports() {
       </div>
 
       {tab === 'item' ? <ItemLedgerReport /> : <AllStockSummaryReport />}
-    </PageShell>
+    </SidebarLayout>
   )
 }
 

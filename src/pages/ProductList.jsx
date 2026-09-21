@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, Search, Upload, Download, FileSpreadsheet } from 'lucide-react'
-import PageShell from '../components/PageShell'
+import SidebarLayout from '../components/SidebarLayout'
 import Modal from '../components/Modal'
 import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
@@ -123,7 +123,7 @@ export default function ProductList() {
   }
 
   return (
-    <PageShell title="รายการสินค้า (Product List)">
+    <SidebarLayout title="รายการสินค้า (Product List)">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
@@ -295,6 +295,6 @@ export default function ProductList() {
           </button>
         </div>
       </Modal>
-    </PageShell>
+    </SidebarLayout>
   )
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, ListFilter, AlertTriangle, PackageSearch, Settings2 } from 'lucide-react'
-import PageShell from '../components/PageShell'
+import SidebarLayout from '../components/SidebarLayout'
 import { inputClass } from '../components/FormField'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import { useStore } from '../store/useStore'
@@ -34,7 +34,7 @@ export default function Stock() {
   const lowStockCount = rows.filter((r) => r.qty <= LOW_STOCK_THRESHOLD).length
 
   return (
-    <PageShell title="สต๊อกสินค้า (Stock Management)">
+    <SidebarLayout title="สต๊อกสินค้า (Stock Management)">
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard icon={<PackageSearch size={18} />} label="จำนวนรายการสินค้า" value={formatNumber(rows.length)} color="text-[var(--text-accent)]" />
         <SummaryCard icon={<AlertTriangle size={18} />} label="สินค้าใกล้หมด (≤ 10)" value={formatNumber(lowStockCount)} color="text-amber-300" />
@@ -118,7 +118,7 @@ export default function Stock() {
       </div>
 
       <TransactionSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
-    </PageShell>
+    </SidebarLayout>
   )
 }
 
