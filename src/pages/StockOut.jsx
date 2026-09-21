@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Pencil, Trash2, Truck, Bookmark, BadgeCheck } from 'lucide-react'
+import { Truck, Bookmark, BadgeCheck } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import FormField, { inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
 import ProductCodeField from '../components/ProductCodeField'
 import { useStore } from '../store/useStore'
-import { todayDDMMYYYY, ddmmyyyyToSortable } from '../utils/date'
-import { formatMoney, formatNumber } from '../utils/format'
+import { todayDDMMYYYY } from '../utils/date'
 
 const emptyForm = {
   date: todayDDMMYYYY(),
@@ -26,7 +25,6 @@ export default function StockOut() {
   const stockOuts = useStore((s) => s.stockOuts)
   const addStockOut = useStore((s) => s.addStockOut)
   const updateStockOut = useStore((s) => s.updateStockOut)
-  const deleteStockOut = useStore((s) => s.deleteStockOut)
 
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -51,12 +49,6 @@ export default function StockOut() {
   function handlePriceChange(price) {
     setForm((f) => ({ ...f, price, total: String((Number(f.qty) || 0) * (Number(price) || 0)) }))
   }
-
-  const rows = useMemo(
-    () =>
-      [...stockOuts].sort((a, b) => (ddmmyyyyToSortable(b.date) ?? 0) - (ddmmyyyyToSortable(a.date) ?? 0)),
-    [stockOuts],
-  )
 
   function handleProductSelect(code, match) {
     setForm((f) => ({ ...f, productCode: code, productName: match ? match.name : f.productName }))
@@ -98,13 +90,6 @@ export default function StockOut() {
       total: String(row.total),
       note: row.note,
     })
-  }
-
-  function handleDelete(id) {
-    if (confirm('ลบรายการนี้ใช่หรือไม่?')) {
-      deleteStockOut(id)
-      if (editingId === id) resetForm()
-    }
   }
 
   return (
@@ -212,70 +197,6 @@ export default function StockOut() {
           </button>
         </div>
       </form>
-
-      <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-        <table className="w-full min-w-[1020px] text-sm">
-          <thead>
-            <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
-              <th className="px-3 py-3 font-medium">วันที่</th>
-              <th className="px-3 py-3 font-medium">รหัสสินค้า</th>
-              <th className="px-3 py-3 font-medium">ชื่อสินค้า</th>
-              <th className="px-3 py-3 font-medium">ลูกค้า/หน่วยงาน</th>
-              <th className="px-3 py-3 font-medium">INVOICE</th>
-              <th className="px-3 py-3 font-medium">SO</th>
-              <th className="px-3 py-3 text-right font-medium">จำนวน</th>
-              <th className="px-3 py-3 text-right font-medium">ราคา/หน่วย</th>
-              <th className="px-3 py-3 text-right font-medium">ราคารวม</th>
-              <th className="px-3 py-3 text-center font-medium">สถานะ</th>
-              <th className="px-3 py-3 text-center font-medium">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const reserved = !!r.so && !r.invoice
-              return (
-                <tr key={r.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                  <td className="px-3 py-3 whitespace-nowrap">{r.date}</td>
-                  <td className="px-3 py-3 font-mono text-[var(--text-accent)]">{r.productCode}</td>
-                  <td className="px-3 py-3">{r.productName}</td>
-                  <td className="px-3 py-3 text-[var(--text-secondary)]">{r.customer}</td>
-                  <td className="px-3 py-3 text-[var(--text-secondary)]">{r.invoice}</td>
-                  <td className="px-3 py-3 text-[var(--text-secondary)]">{r.so}</td>
-                  <td className="px-3 py-3 text-right">{formatNumber(r.qty)}</td>
-                  <td className="px-3 py-3 text-right">{formatMoney(r.price)}</td>
-                  <td className="px-3 py-3 text-right font-semibold">{formatMoney(r.total)}</td>
-                  <td className="px-3 py-3 text-center">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                        reserved ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'
-                      }`}
-                    >
-                      {reserved ? 'จอง' : 'ออกแล้ว'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => handleEdit(r)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]">
-                        <Pencil size={15} />
-                      </button>
-                      <button onClick={() => handleDelete(r.id)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-red-500/15 hover:text-red-400">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-[var(--text-faint)]">
-                  ยังไม่มีรายการสินค้าออก
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
     </SidebarLayout>
   )
 }

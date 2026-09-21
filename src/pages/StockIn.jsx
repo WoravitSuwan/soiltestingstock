@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Pencil, Trash2, PackagePlus } from 'lucide-react'
+import { PackagePlus } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import FormField, { inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
 import ProductCodeField from '../components/ProductCodeField'
 import { useStore } from '../store/useStore'
-import { todayDDMMYYYY, ddmmyyyyToSortable } from '../utils/date'
-import { formatMoney, formatNumber } from '../utils/format'
+import { todayDDMMYYYY } from '../utils/date'
 
 const emptyForm = {
   date: todayDDMMYYYY(),
@@ -27,7 +26,6 @@ export default function StockIn() {
   const stockIns = useStore((s) => s.stockIns)
   const addStockIn = useStore((s) => s.addStockIn)
   const updateStockIn = useStore((s) => s.updateStockIn)
-  const deleteStockIn = useStore((s) => s.deleteStockIn)
 
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -50,12 +48,6 @@ export default function StockIn() {
   function handlePriceChange(price) {
     setForm((f) => ({ ...f, price, total: String((Number(f.qty) || 0) * (Number(price) || 0)) }))
   }
-
-  const rows = useMemo(
-    () =>
-      [...stockIns].sort((a, b) => (ddmmyyyyToSortable(b.date) ?? 0) - (ddmmyyyyToSortable(a.date) ?? 0)),
-    [stockIns],
-  )
 
   function handleProductSelect(code, match) {
     setForm((f) => ({ ...f, productCode: code, productName: match ? match.name : f.productName }))
@@ -98,13 +90,6 @@ export default function StockIn() {
       customer: row.customer,
       note: row.note,
     })
-  }
-
-  function handleDelete(id) {
-    if (confirm('ลบรายการนี้ใช่หรือไม่?')) {
-      deleteStockIn(id)
-      if (editingId === id) resetForm()
-    }
   }
 
   return (
@@ -205,55 +190,6 @@ export default function StockIn() {
           </button>
         </div>
       </form>
-
-      <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-        <table className="w-full min-w-[980px] text-sm">
-          <thead>
-            <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
-              <th className="px-3 py-3 font-medium">วันที่</th>
-              <th className="px-3 py-3 font-medium">รหัสสินค้า</th>
-              <th className="px-3 py-3 font-medium">ชื่อสินค้า</th>
-              <th className="px-3 py-3 font-medium">ผู้ผลิต/ผู้ขาย</th>
-              <th className="px-3 py-3 font-medium">PO</th>
-              <th className="px-3 py-3 text-right font-medium">จำนวน</th>
-              <th className="px-3 py-3 text-right font-medium">ราคา/หน่วย</th>
-              <th className="px-3 py-3 text-right font-medium">ราคารวม</th>
-              <th className="px-3 py-3 text-center font-medium">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                <td className="px-3 py-3 whitespace-nowrap">{r.date}</td>
-                <td className="px-3 py-3 font-mono text-[var(--text-accent)]">{r.productCode}</td>
-                <td className="px-3 py-3">{r.productName}</td>
-                <td className="px-3 py-3 text-[var(--text-secondary)]">{r.supplier}</td>
-                <td className="px-3 py-3 text-[var(--text-secondary)]">{r.po}</td>
-                <td className="px-3 py-3 text-right">{formatNumber(r.qty)}</td>
-                <td className="px-3 py-3 text-right">{formatMoney(r.price)}</td>
-                <td className="px-3 py-3 text-right font-semibold">{formatMoney(r.total)}</td>
-                <td className="px-3 py-3">
-                  <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => handleEdit(r)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]">
-                      <Pencil size={15} />
-                    </button>
-                    <button onClick={() => handleDelete(r.id)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-red-500/15 hover:text-red-400">
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-[var(--text-faint)]">
-                  ยังไม่มีรายการรับสินค้า
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
     </SidebarLayout>
   )
 }

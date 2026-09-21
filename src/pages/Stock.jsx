@@ -6,7 +6,7 @@ import { inputClass } from '../components/FormField'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import { useStore } from '../store/useStore'
 import { currentBalance, sumStockIn, sumStockOut } from '../utils/stockCalc'
-import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
+import { thaiCompare, formatNumber } from '../utils/format'
 
 const LOW_STOCK_THRESHOLD = 5
 
@@ -28,7 +28,7 @@ export default function Stock() {
         const inSum = sumStockIn(stockIns, p.code)
         const outSum = sumStockOut(stockOuts, p.code)
         const bal = currentBalance(p, stockIns, stockOuts)
-        return { ...p, inQty: inSum.qty, outQty: outSum.qty, qty: bal.qty, value: bal.value }
+        return { ...p, inQty: inSum.qty, outQty: outSum.qty, qty: bal.qty }
       })
 
     // low-stock items pinned to top; each group otherwise stays A-Z
@@ -40,15 +40,13 @@ export default function Stock() {
     })
   }, [products, stockIns, stockOuts, query])
 
-  const totalValue = rows.reduce((sum, r) => sum + r.value, 0)
   const lowStockCount = rows.filter((r) => r.qty <= LOW_STOCK_THRESHOLD).length
 
   return (
     <SidebarLayout title="สต๊อกสินค้า (Stock Management)">
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <SummaryCard icon={<PackageSearch size={18} />} label="จำนวนรายการสินค้า" value={formatNumber(rows.length)} color="text-[var(--text-accent)]" />
         <SummaryCard icon={<AlertTriangle size={18} />} label={`สินค้าใกล้หมด (≤ ${LOW_STOCK_THRESHOLD})`} value={formatNumber(lowStockCount)} color="text-amber-300" />
-        <SummaryCard icon={<ListFilter size={18} />} label="มูลค่าสต๊อกรวม" value={`฿ ${formatMoney(totalValue)}`} color="text-emerald-300" />
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
