@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Pencil, Trash2, Truck, Bookmark, BadgeCheck } from 'lucide-react'
-import PageShell from '../components/PageShell'
+import SidebarLayout from '../components/SidebarLayout'
 import FormField, { inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
 import ProductCodeField from '../components/ProductCodeField'
@@ -94,7 +94,7 @@ export default function StockOut() {
   }
 
   return (
-    <PageShell title="บันทึกสินค้าออก (Stock Out)">
+    <SidebarLayout title="บันทึกสินค้าออก (Stock Out)">
       <form
         onSubmit={handleSubmit}
         className="mb-8 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 shadow-card"
@@ -257,6 +257,6 @@ export default function StockOut() {
           </tbody>
         </table>
       </div>
-    </PageShell>
+    </SidebarLayout>
   )
 }

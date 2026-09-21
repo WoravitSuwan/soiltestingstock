@@ -1,0 +1,109 @@
+import { useState } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import {
+  Boxes,
+  Home,
+  Package,
+  PackagePlus,
+  PackageMinus,
+  BarChart3,
+  ClipboardList,
+  Settings,
+  LogOut,
+  ShieldCheck,
+} from 'lucide-react'
+import SettingsModal from './SettingsModal'
+import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+
+const NAV_ITEMS = [
+  { to: '/', label: 'Home', icon: Home, end: true },
+  { to: '/products', label: 'Item Card', icon: Package },
+  { to: '/stock-in', label: 'Stock In', icon: PackagePlus },
+  { to: '/stock-out', label: 'Stock Out', icon: PackageMinus },
+  { to: '/stock', label: 'Stock', icon: BarChart3 },
+  { to: '/reports', label: 'Reports', icon: ClipboardList },
+]
+
+export default function Sidebar() {
+  const currentUser = useCurrentUser()
+  const logout = useAuthStore((s) => s.logout)
+  const navigate = useNavigate()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  function handleSignOut() {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
+  return (
+    <aside className="sticky top-0 flex h-screen w-64 flex-shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)]">
+      <div className="flex items-center gap-3 border-b border-[var(--border-color)] px-5 py-5">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-600">
+          <Boxes size={20} className="text-white" />
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-bold text-[var(--text-primary)]">Inventory System</div>
+          <div className="truncate text-[10px] font-medium tracking-wide text-[var(--text-faint)]">
+            STS · SOIL TESTING SIAM
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <ul className="flex flex-col gap-1">
+          {NAV_ITEMS.map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-[var(--bg-hover-strong)] text-[var(--text-primary)]'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                  }`
+                }
+              >
+                <item.icon size={17} />
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <div className="border-t border-[var(--border-color)] px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+            {currentUser?.username?.[0]?.toUpperCase() ?? '?'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
+              {currentUser?.username ?? '-'}
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-[var(--text-faint)]">
+              <ShieldCheck size={11} />
+              {currentUser?.role === 'Admin' ? 'Admin' : 'Staff'}
+            </div>
+          </div>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+            aria-label="ตั้งค่า"
+          >
+            <Settings size={15} />
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+            aria-label="ออกจากระบบ"
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+      </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </aside>
+  )
+}

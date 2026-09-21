@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Settings, LogOut, UserCircle2, ArrowLeft } from 'lucide-react'
+import { Settings, LogOut, UserCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import SealLogo from './SealLogo'
 import SettingsModal from './SettingsModal'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 
-export default function TopBar({ showBack = false, pageTitle }) {
+export default function TopBar() {
   const navigate = useNavigate()
   const currentUser = useCurrentUser()
   const logout = useAuthStore((s) => s.logout)
@@ -28,22 +28,13 @@ export default function TopBar({ showBack = false, pageTitle }) {
 
       <div className="relative flex items-center justify-between px-6 py-5 sm:px-10">
         <div className="flex items-center gap-4">
-          {showBack && (
-            <button
-              onClick={() => navigate('/')}
-              className="mr-1 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
-              aria-label="กลับหน้าหลัก"
-            >
-              <ArrowLeft size={18} />
-            </button>
-          )}
           <SealLogo size={52} />
           <div>
             <div className="text-2xl font-extrabold tracking-wide text-[var(--text-primary)]">
               STS
             </div>
             <div className="-mt-1 text-[11px] font-medium tracking-[0.2em] text-[var(--text-accent)]">
-              {pageTitle ? pageTitle.toUpperCase() : 'SOIL TESTING SIAM'}
+              SOIL TESTING SIAM
             </div>
           </div>
         </div>
