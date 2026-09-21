@@ -3,7 +3,10 @@
 
 export function WarehouseIllustration() {
   return (
-    <svg width="140" height="120" viewBox="0 0 140 120" className="drop-shadow-lg">
+    <svg
+      viewBox="0 0 140 120"
+      className="h-28 w-32 drop-shadow-lg transition-transform duration-200 sm:h-32 sm:w-36 lg:h-40 lg:w-44"
+    >
       <path d="M18 52 L70 22 L122 52 L122 100 L18 100 Z" fill="#F0D2A8" />
       <path d="M14 54 L70 20 L126 54 L118 58 L70 30 L22 58 Z" fill="#E0B076" />
       <rect x="30" y="64" width="22" height="20" rx="2" fill="#B9824A" opacity="0.6" />
@@ -19,7 +22,10 @@ export function WarehouseIllustration() {
 
 export function TruckIllustration() {
   return (
-    <svg width="140" height="120" viewBox="0 0 140 120" className="drop-shadow-lg">
+    <svg
+      viewBox="0 0 140 120"
+      className="h-28 w-32 drop-shadow-lg transition-transform duration-200 sm:h-32 sm:w-36 lg:h-40 lg:w-44"
+    >
       <rect x="10" y="58" width="24" height="26" rx="3" fill="#E0AA63" />
       <rect x="14" y="44" width="20" height="18" rx="3" fill="#F0C589" />
       <rect x="40" y="52" width="54" height="36" rx="4" fill="#2F84FB" />
@@ -43,7 +49,10 @@ export function TruckIllustration() {
 
 export function ShelfIllustration() {
   return (
-    <svg width="140" height="120" viewBox="0 0 140 120" className="drop-shadow-lg">
+    <svg
+      viewBox="0 0 140 120"
+      className="h-28 w-32 drop-shadow-lg transition-transform duration-200 sm:h-32 sm:w-36 lg:h-40 lg:w-44"
+    >
       <rect x="24" y="18" width="6" height="88" rx="2" fill="#94A3B8" />
       <rect x="110" y="18" width="6" height="88" rx="2" fill="#94A3B8" />
       <rect x="24" y="34" width="92" height="5" rx="2" fill="#64748B" />
@@ -66,7 +75,10 @@ export function ShelfIllustration() {
 
 export function ReportIllustration() {
   return (
-    <svg width="140" height="120" viewBox="0 0 140 120" className="drop-shadow-lg">
+    <svg
+      viewBox="0 0 140 120"
+      className="h-28 w-32 drop-shadow-lg transition-transform duration-200 sm:h-32 sm:w-36 lg:h-40 lg:w-44"
+    >
       <rect x="34" y="14" width="60" height="92" rx="8" fill="white" />
       <rect x="52" y="8" width="24" height="12" rx="3" fill="#EF4444" />
       <rect x="42" y="26" width="44" height="8" rx="2" fill="#334155" />

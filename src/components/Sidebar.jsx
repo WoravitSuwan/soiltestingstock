@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
+  X,
 } from 'lucide-react'
 import SettingsModal from './SettingsModal'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
@@ -24,7 +25,7 @@ const NAV_ITEMS = [
   { to: '/reports', label: 'Reports', icon: ClipboardList },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   const currentUser = useCurrentUser()
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
@@ -36,74 +37,97 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 flex-shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)]">
-      <div className="flex items-center gap-3 border-b border-[var(--border-color)] px-5 py-5">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-600">
-          <Boxes size={20} className="text-white" />
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-bold text-[var(--text-primary)]">Inventory System</div>
-          <div className="truncate text-[10px] font-medium tracking-wide text-[var(--text-faint)]">
-            STS · SOIL TESTING SIAM
-          </div>
-        </div>
-      </div>
+    <>
+      {/* backdrop, mobile drawer only */}
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 md:hidden ${
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-[var(--bg-hover-strong)] text-[var(--text-primary)]'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-                  }`
-                }
-              >
-                <item.icon size={17} />
-                {item.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="border-t border-[var(--border-color)] px-4 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-            {currentUser?.username?.[0]?.toUpperCase() ?? '?'}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)] transition-transform duration-200 md:sticky md:top-0 md:z-auto md:w-64 md:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center gap-3 border-b border-[var(--border-color)] px-5 py-5">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-600">
+            <Boxes size={20} className="text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
-              {currentUser?.username ?? '-'}
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-[var(--text-faint)]">
-              <ShieldCheck size={11} />
-              {currentUser?.role === 'Admin' ? 'Admin' : 'Staff'}
+            <div className="truncate text-sm font-bold text-[var(--text-primary)]">Inventory System</div>
+            <div className="truncate text-[10px] font-medium tracking-wide text-[var(--text-faint)]">
+              STS · SOIL TESTING SIAM
             </div>
           </div>
           <button
-            onClick={() => setSettingsOpen(true)}
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
-            aria-label="ตั้งค่า"
+            onClick={onClose}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)] md:hidden"
+            aria-label="ปิดเมนู"
           >
-            <Settings size={15} />
-          </button>
-          <button
-            onClick={handleSignOut}
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
-            aria-label="ออกจากระบบ"
-          >
-            <LogOut size={15} />
+            <X size={18} />
           </button>
         </div>
-      </div>
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-    </aside>
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <ul className="flex flex-col gap-1">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  end={item.end}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                      isActive
+                        ? 'bg-[var(--bg-hover-strong)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                    }`
+                  }
+                >
+                  <item.icon size={17} />
+                  {item.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="border-t border-[var(--border-color)] px-4 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+              {currentUser?.username?.[0]?.toUpperCase() ?? '?'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                {currentUser?.username ?? '-'}
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-[var(--text-faint)]">
+                <ShieldCheck size={11} />
+                {currentUser?.role === 'Admin' ? 'Admin' : 'Staff'}
+              </div>
+            </div>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+              aria-label="ตั้งค่า"
+            >
+              <Settings size={15} />
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+              aria-label="ออกจากระบบ"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+        </div>
+
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </aside>
+    </>
   )
 }
