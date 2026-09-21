@@ -97,7 +97,7 @@ export default function StockOut() {
     <PageShell title="บันทึกสินค้าออก (Stock Out)">
       <form
         onSubmit={handleSubmit}
-        className="mb-8 rounded-xl border border-white/10 bg-[#121828] p-6 shadow-card"
+        className="mb-8 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 shadow-card"
       >
         <div className="mb-4 flex items-center gap-2 text-sky-400">
           <Truck size={18} />
@@ -180,24 +180,24 @@ export default function StockOut() {
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-white/70 hover:bg-white/5"
+              className="rounded-lg border border-[var(--border-color)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
             >
               ยกเลิกการแก้ไข
             </button>
           )}
           <button
             type="submit"
-            className="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500"
+            className="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-sky-500"
           >
             {editingId ? 'บันทึกการแก้ไข' : 'บันทึกสินค้าออก'}
           </button>
         </div>
       </form>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
         <table className="w-full min-w-[1020px] text-sm">
           <thead>
-            <tr className="bg-white/5 text-left text-white/60">
+            <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
               <th className="px-3 py-3 font-medium">วันที่</th>
               <th className="px-3 py-3 font-medium">รหัสสินค้า</th>
               <th className="px-3 py-3 font-medium">ชื่อสินค้า</th>
@@ -215,13 +215,13 @@ export default function StockOut() {
             {rows.map((r) => {
               const reserved = !!r.so && !r.invoice
               return (
-                <tr key={r.id} className="border-t border-white/5 text-white/85 hover:bg-white/5">
+                <tr key={r.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                   <td className="px-3 py-3 whitespace-nowrap">{r.date}</td>
-                  <td className="px-3 py-3 font-mono text-blue-300">{r.productCode}</td>
+                  <td className="px-3 py-3 font-mono text-[var(--text-accent)]">{r.productCode}</td>
                   <td className="px-3 py-3">{r.productName}</td>
-                  <td className="px-3 py-3 text-white/60">{r.customer}</td>
-                  <td className="px-3 py-3 text-white/60">{r.invoice}</td>
-                  <td className="px-3 py-3 text-white/60">{r.so}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{r.customer}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{r.invoice}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{r.so}</td>
                   <td className="px-3 py-3 text-right">{formatNumber(r.qty)}</td>
                   <td className="px-3 py-3 text-right">{formatMoney(r.price)}</td>
                   <td className="px-3 py-3 text-right font-semibold">{formatMoney(r.total)}</td>
@@ -236,10 +236,10 @@ export default function StockOut() {
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => handleEdit(r)} className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white">
+                      <button onClick={() => handleEdit(r)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]">
                         <Pencil size={15} />
                       </button>
-                      <button onClick={() => handleDelete(r.id)} className="rounded-md p-1.5 text-white/50 hover:bg-red-500/20 hover:text-red-400">
+                      <button onClick={() => handleDelete(r.id)} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-red-500/15 hover:text-red-400">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -249,7 +249,7 @@ export default function StockOut() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-white/30">
+                <td colSpan={11} className="px-4 py-8 text-center text-[var(--text-faint)]">
                   ยังไม่มีรายการสินค้าออก
                 </td>
               </tr>

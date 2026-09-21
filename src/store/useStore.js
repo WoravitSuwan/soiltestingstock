@@ -1,10 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { thaiCompare } from '../utils/format'
-
-function genId(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
+import { genId } from '../utils/id'
 
 const seedProducts = [
   {

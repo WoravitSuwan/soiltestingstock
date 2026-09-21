@@ -4,7 +4,7 @@ import { StockInIcon, StockOutIcon, StockIcon, ReportsIcon } from '../components
 
 export default function Dashboard() {
   return (
-    <div className="min-h-screen bg-[#0B0F19]">
+    <div className="min-h-screen bg-[var(--bg-page)]">
       <TopBar />
 
       <div className="mx-auto max-w-5xl px-6 pb-16 pt-6 sm:px-10">
