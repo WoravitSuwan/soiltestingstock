@@ -84,10 +84,12 @@ export default function Stock() {
               <th className="px-4 py-3 text-right font-medium">เข้า</th>
               <th className="px-4 py-3 text-right font-medium">ออก</th>
               <th className="px-4 py-3 text-right font-medium">คงเหลือ</th>
+              <th className="px-4 py-3 text-center font-medium">สถานะ</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => {
+              const out = r.qty <= 0
               const low = r.qty <= LOW_STOCK_THRESHOLD
               return (
                 <tr
@@ -101,12 +103,25 @@ export default function Stock() {
                   <td className="px-4 py-3 text-right">{formatNumber(r.inQty)}</td>
                   <td className="px-4 py-3 text-right">{formatNumber(r.outQty)}</td>
                   <td className="px-4 py-3 text-right font-bold">{formatNumber(r.qty)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                        out
+                          ? 'bg-red-500/15 text-red-400'
+                          : low
+                          ? 'bg-amber-500/15 text-amber-300'
+                          : 'bg-emerald-500/15 text-emerald-300'
+                      }`}
+                    >
+                      {out ? 'หมดสต๊อก' : low ? 'ใกล้หมด' : 'ปกติ'}
+                    </span>
+                  </td>
                 </tr>
               )
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-faint)]">
+                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-faint)]">
                   ไม่พบสินค้า
                 </td>
               </tr>
