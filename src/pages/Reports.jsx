@@ -195,7 +195,21 @@ function ItemLedgerTable({ product, ledger }) {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-        <table className="w-full min-w-[1100px] text-xs">
+        <table className="w-full min-w-[900px] table-fixed text-xs">
+          <colgroup>
+            <col className="w-[8%]" />
+            <col className="w-[9%]" />
+            <col className="w-[6%]" />
+            <col className="w-[7%]" />
+            <col className="w-[8%]" />
+            <col className="w-[6%]" />
+            <col className="w-[7%]" />
+            <col className="w-[8%]" />
+            <col className="w-[7%]" />
+            <col className="w-[9%]" />
+            <col className="w-[13%]" />
+            <col className="w-[12%]" />
+          </colgroup>
           <thead>
             <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">วันที่</th>
@@ -226,8 +240,8 @@ function ItemLedgerTable({ product, ledger }) {
             </tr>
             {ledger.rows.map((r, idx) => (
               <tr key={idx} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                <td className="whitespace-nowrap px-2 py-2">{r.date}</td>
-                <td className="px-2 py-2">{r.docNo}</td>
+                <td className="truncate px-2 py-2">{r.date}</td>
+                <td className="truncate px-2 py-2" title={r.docNo}>{r.docNo}</td>
                 <td className="px-2 py-2 text-right">{r.kind === 'in' ? formatNumber(r.qty) : ''}</td>
                 <td className="px-2 py-2 text-right">{r.kind === 'in' ? formatMoney(r.price) : ''}</td>
                 <td className="px-2 py-2 text-right">{r.kind === 'in' ? formatMoney(r.value) : ''}</td>
@@ -236,8 +250,8 @@ function ItemLedgerTable({ product, ledger }) {
                 <td className="px-2 py-2 text-right">{r.kind === 'out' ? formatMoney(r.value) : ''}</td>
                 <td className="px-2 py-2 text-right font-medium">{formatNumber(r.balanceQty)}</td>
                 <td className="px-2 py-2 text-right font-medium">{formatMoney(r.balanceValue)}</td>
-                <td className="px-2 py-2 text-[var(--text-secondary)]">{r.party}</td>
-                <td className="px-2 py-2 text-[var(--text-muted)]">
+                <td className="truncate px-2 py-2 text-[var(--text-secondary)]" title={r.party}>{r.party}</td>
+                <td className="truncate px-2 py-2 text-[var(--text-muted)]" title={r.note}>
                   {r.note}
                   {r.kind === 'out' && r.isReservation && (
                     <span className="ml-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
