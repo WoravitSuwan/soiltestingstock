@@ -8,7 +8,7 @@ import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
 import { exportAoaToExcel } from '../utils/export'
 import { parseProductWorkbook, buildProductTemplateAoa, buildProductExportAoa } from '../utils/productImport'
 
-const emptyForm = { code: '', name: '', category: '', unit: '', unitPrice: '', openingQty: '' }
+const emptyForm = { code: '', name: '', unit: '', unitPrice: '', openingQty: '1' }
 
 export default function ProductList() {
   const products = useStore((s) => s.products)
@@ -50,7 +50,6 @@ export default function ProductList() {
     const payload = {
       code: form.code.trim(),
       name: form.name.trim(),
-      category: form.category.trim(),
       unit: form.unit.trim(),
       unitPrice: Number(form.unitPrice) || 0,
       openingQty: Number(form.openingQty) || 0,
@@ -187,10 +186,9 @@ export default function ProductList() {
             <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
               <th className="px-4 py-3 font-medium">รหัสสินค้า</th>
               <th className="px-4 py-3 font-medium">ชื่อสินค้า</th>
-              <th className="px-4 py-3 font-medium">หมวดหมู่</th>
+              <th className="px-4 py-3 text-right font-medium">จำนวน</th>
               <th className="px-4 py-3 font-medium">หน่วย</th>
-              <th className="px-4 py-3 text-right font-medium">ราคา/หน่วย</th>
-              <th className="px-4 py-3 text-right font-medium">ยอดยกมา</th>
+              <th className="px-4 py-3 text-right font-medium">ราคา/หน่วยละ</th>
               <th className="px-4 py-3 text-center font-medium">จัดการ</th>
             </tr>
           </thead>
@@ -199,10 +197,9 @@ export default function ProductList() {
               <tr key={p.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                 <td className="px-4 py-3 font-mono text-[var(--text-accent)]">{p.code}</td>
                 <td className="px-4 py-3">{p.name}</td>
-                <td className="px-4 py-3 text-[var(--text-secondary)]">{p.category}</td>
+                <td className="px-4 py-3 text-right">{formatNumber(p.openingQty)}</td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">{p.unit}</td>
                 <td className="px-4 py-3 text-right">{formatMoney(p.unitPrice)}</td>
-                <td className="px-4 py-3 text-right">{formatNumber(p.openingQty)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-2">
                     <button
@@ -223,7 +220,7 @@ export default function ProductList() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-[var(--text-faint)]">
+                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-faint)]">
                   ไม่พบสินค้า
                 </td>
               </tr>
@@ -249,33 +246,26 @@ export default function ProductList() {
               className={inputClass()}
             />
           </FormField>
-          <FormField label="หมวดหมู่">
+          <FormField label="จำนวน">
             <input
-              value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              type="number"
+              value={form.openingQty}
+              onChange={(e) => setForm((f) => ({ ...f, openingQty: e.target.value }))}
               className={inputClass()}
             />
           </FormField>
-          <FormField label="หน่วย">
+          <FormField label="หน่วย" hint="เช่น EA">
             <input
               value={form.unit}
               onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
               className={inputClass()}
             />
           </FormField>
-          <FormField label="ราคา / หน่วย">
+          <FormField label="ราคา/หน่วยละ" hint="ราคาต้นทุนไม่รวม VAT">
             <input
               type="number"
               value={form.unitPrice}
               onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="ยอดยกมา (จำนวน)">
-            <input
-              type="number"
-              value={form.openingQty}
-              onChange={(e) => setForm((f) => ({ ...f, openingQty: e.target.value }))}
               className={inputClass()}
             />
           </FormField>

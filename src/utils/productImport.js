@@ -3,10 +3,9 @@ import * as XLSX from 'xlsx'
 const HEADER_MAP = {
   code: ['รหัสสินค้า', 'รหัส', 'code', 'productcode'],
   name: ['ชื่อสินค้า', 'ชื่อ', 'name', 'productname'],
-  category: ['หมวดหมู่', 'category'],
   unit: ['หน่วย', 'unit'],
-  unitPrice: ['ราคา/หน่วย', 'ราคาต่อหน่วย', 'ราคา', 'unitprice', 'price'],
-  openingQty: ['ยอดยกมา', 'ยอดยกมา(จำนวน)', 'openingqty', 'openingbalance', 'opening'],
+  unitPrice: ['ราคา/หน่วยละ', 'ราคา/หน่วย', 'ราคาต่อหน่วย', 'ราคา', 'unitprice', 'price'],
+  openingQty: ['จำนวน', 'ยอดยกมา', 'ยอดยกมา(จำนวน)', 'openingqty', 'openingbalance', 'opening', 'qty'],
 }
 
 function normalizeKey(k) {
@@ -37,7 +36,6 @@ export function parseProductWorkbook(arrayBuffer) {
       return {
         code: String(pickField(normalizedRow, 'code')).trim(),
         name: String(pickField(normalizedRow, 'name')).trim(),
-        category: String(pickField(normalizedRow, 'category')).trim(),
         unit: String(pickField(normalizedRow, 'unit')).trim(),
         unitPrice: Number(pickField(normalizedRow, 'unitPrice')) || 0,
         openingQty: Number(pickField(normalizedRow, 'openingQty')) || 0,
@@ -48,14 +46,14 @@ export function parseProductWorkbook(arrayBuffer) {
 
 export function buildProductTemplateAoa() {
   return [
-    ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'หน่วย', 'ราคา/หน่วย', 'ยอดยกมา'],
-    ['RM-0003', 'ตัวอย่างสินค้า', 'วัตถุดิบ', 'กก.', 100, 50],
+    ['รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วยละ'],
+    ['RM-0003', 'ตัวอย่างสินค้า', 1, 'EA', 100],
   ]
 }
 
 export function buildProductExportAoa(products) {
   return [
-    ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'หน่วย', 'ราคา/หน่วย', 'ยอดยกมา'],
-    ...products.map((p) => [p.code, p.name, p.category, p.unit, p.unitPrice, p.openingQty]),
+    ['รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วยละ'],
+    ...products.map((p) => [p.code, p.name, p.openingQty, p.unit, p.unitPrice]),
   ]
 }

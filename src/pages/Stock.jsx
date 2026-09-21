@@ -5,10 +5,10 @@ import SidebarLayout from '../components/SidebarLayout'
 import { inputClass } from '../components/FormField'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import { useStore } from '../store/useStore'
-import { currentBalance } from '../utils/stockCalc'
+import { currentBalance, sumStockIn, sumStockOut } from '../utils/stockCalc'
 import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
 
-const LOW_STOCK_THRESHOLD = 10
+const LOW_STOCK_THRESHOLD = 5
 
 export default function Stock() {
   const products = useStore((s) => s.products)
@@ -21,13 +21,23 @@ export default function Stock() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return [...products]
+    const computed = [...products]
       .filter((p) => !q || p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
       .sort((a, b) => thaiCompare(a.code, b.code))
       .map((p) => {
+        const inSum = sumStockIn(stockIns, p.code)
+        const outSum = sumStockOut(stockOuts, p.code)
         const bal = currentBalance(p, stockIns, stockOuts)
-        return { ...p, ...bal }
+        return { ...p, inQty: inSum.qty, outQty: outSum.qty, qty: bal.qty, value: bal.value }
       })
+
+    // low-stock items pinned to top; each group otherwise stays A-Z
+    return computed.sort((a, b) => {
+      const aLow = a.qty <= LOW_STOCK_THRESHOLD ? 0 : 1
+      const bLow = b.qty <= LOW_STOCK_THRESHOLD ? 0 : 1
+      if (aLow !== bLow) return aLow - bLow
+      return thaiCompare(a.code, b.code)
+    })
   }, [products, stockIns, stockOuts, query])
 
   const totalValue = rows.reduce((sum, r) => sum + r.value, 0)
@@ -37,7 +47,7 @@ export default function Stock() {
     <SidebarLayout title="สต๊อกสินค้า (Stock Management)">
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard icon={<PackageSearch size={18} />} label="จำนวนรายการสินค้า" value={formatNumber(rows.length)} color="text-[var(--text-accent)]" />
-        <SummaryCard icon={<AlertTriangle size={18} />} label="สินค้าใกล้หมด (≤ 10)" value={formatNumber(lowStockCount)} color="text-amber-300" />
+        <SummaryCard icon={<AlertTriangle size={18} />} label={`สินค้าใกล้หมด (≤ ${LOW_STOCK_THRESHOLD})`} value={formatNumber(lowStockCount)} color="text-amber-300" />
         <SummaryCard icon={<ListFilter size={18} />} label="มูลค่าสต๊อกรวม" value={`฿ ${formatMoney(totalValue)}`} color="text-emerald-300" />
       </div>
 
@@ -68,47 +78,37 @@ export default function Stock() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-        <table className="w-full min-w-[820px] text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
               <th className="px-4 py-3 font-medium">รหัสสินค้า</th>
-              <th className="px-4 py-3 font-medium">ชื่อสินค้า</th>
-              <th className="px-4 py-3 font-medium">หน่วย</th>
-              <th className="px-4 py-3 text-right font-medium">คงเหลือ (จำนวน)</th>
-              <th className="px-4 py-3 text-right font-medium">มูลค่าคงเหลือ</th>
-              <th className="px-4 py-3 text-center font-medium">สถานะ</th>
+              <th className="px-4 py-3 font-medium">ชื่อผลิตภัณฑ์</th>
+              <th className="px-4 py-3 text-right font-medium">เข้า</th>
+              <th className="px-4 py-3 text-right font-medium">ออก</th>
+              <th className="px-4 py-3 text-right font-medium">คงเหลือ</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => {
               const low = r.qty <= LOW_STOCK_THRESHOLD
-              const out = r.qty <= 0
               return (
-                <tr key={r.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                  <td className="px-4 py-3 font-mono text-[var(--text-accent)]">{r.code}</td>
+                <tr
+                  key={r.code}
+                  className={`border-t border-[var(--border-color-soft)] hover:bg-[var(--bg-hover)] ${
+                    low ? 'text-red-400' : 'text-[var(--text-primary)]'
+                  }`}
+                >
+                  <td className={`px-4 py-3 font-mono ${low ? 'text-red-400' : 'text-[var(--text-accent)]'}`}>{r.code}</td>
                   <td className="px-4 py-3">{r.name}</td>
-                  <td className="px-4 py-3 text-[var(--text-secondary)]">{r.unit}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{formatNumber(r.qty)}</td>
-                  <td className="px-4 py-3 text-right">{formatMoney(r.value)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                        out
-                          ? 'bg-red-500/15 text-red-400'
-                          : low
-                          ? 'bg-amber-500/15 text-amber-300'
-                          : 'bg-emerald-500/15 text-emerald-300'
-                      }`}
-                    >
-                      {out ? 'หมดสต๊อก' : low ? 'ใกล้หมด' : 'ปกติ'}
-                    </span>
-                  </td>
+                  <td className="px-4 py-3 text-right">{formatNumber(r.inQty)}</td>
+                  <td className="px-4 py-3 text-right">{formatNumber(r.outQty)}</td>
+                  <td className="px-4 py-3 text-right font-bold">{formatNumber(r.qty)}</td>
                 </tr>
               )
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-faint)]">
+                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-faint)]">
                   ไม่พบสินค้า
                 </td>
               </tr>

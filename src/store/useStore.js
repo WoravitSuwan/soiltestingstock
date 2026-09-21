@@ -7,7 +7,6 @@ const seedProducts = [
   {
     code: 'RM-0001',
     name: 'ทรายมาตรฐาน (Standard Sand)',
-    category: 'วัตถุดิบ',
     unit: 'กก.',
     unitPrice: 25,
     openingQty: 500,
@@ -15,7 +14,6 @@ const seedProducts = [
   {
     code: 'RM-0002',
     name: 'ปูนซีเมนต์ปอร์ตแลนด์',
-    category: 'วัตถุดิบ',
     unit: 'กระสอบ',
     unitPrice: 180,
     openingQty: 120,
@@ -23,7 +21,6 @@ const seedProducts = [
   {
     code: 'EQ-0001',
     name: 'ชุดตรวจสอบดิน Proctor Test',
-    category: 'อุปกรณ์',
     unit: 'ชุด',
     unitPrice: 4500,
     openingQty: 10,
