@@ -26,21 +26,21 @@ export default function TopBar() {
         }}
       />
 
-      <div className="relative flex items-center justify-between px-6 py-5 sm:px-10">
-        <div className="flex items-center gap-3">
-          <SealLogo size={48} />
-          <div>
-            <div className="text-3xl font-extrabold tracking-wide text-sky-400">STS</div>
-            <div className="-mt-1 text-[11px] font-medium tracking-[0.2em] text-[var(--text-faint)]">
+      <div className="relative flex items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5 lg:px-10">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <SealLogo size={44} />
+          <div className="min-w-0">
+            <div className="text-2xl font-extrabold tracking-wide text-sky-400 sm:text-3xl">STS</div>
+            <div className="-mt-1 truncate text-[10px] font-medium tracking-[0.15em] text-[var(--text-faint)] sm:text-[11px] sm:tracking-[0.2em]">
               SOIL TESTING SIAM
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2">
-            <UserCircle2 size={30} className="text-[var(--text-secondary)]" />
-            <div className="leading-tight">
+        <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-2.5 py-1.5 sm:gap-3 sm:px-4 sm:py-2">
+            <UserCircle2 size={26} className="text-[var(--text-secondary)] sm:h-[30px] sm:w-[30px]" />
+            <div className="hidden leading-tight sm:block">
               <div className="text-sm font-semibold text-[var(--text-primary)]">
                 {currentUser?.username ?? '-'}
               </div>
@@ -51,17 +51,17 @@ export default function TopBar() {
           </div>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:h-10 sm:w-10"
             aria-label="ตั้งค่า"
           >
             <Settings size={18} />
           </button>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-2 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-2.5 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:px-4"
           >
             <LogOut size={16} />
-            Sign out
+            <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
       </div>

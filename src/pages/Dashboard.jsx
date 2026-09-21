@@ -12,8 +12,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[var(--bg-page)]">
       <TopBar />
 
-      <div className="mx-auto max-w-5xl px-6 pb-16 pt-6 sm:px-10">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-10">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
           <NavCard
             to="/stock-in"
             icon={<WarehouseIllustration />}
