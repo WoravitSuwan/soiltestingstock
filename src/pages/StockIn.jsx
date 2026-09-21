@@ -17,6 +17,7 @@ const emptyForm = {
   po: '',
   qty: '',
   price: '',
+  total: '',
   soLot: '',
   customer: '',
   note: '',
@@ -42,7 +43,13 @@ export default function StockIn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const total = (Number(form.qty) || 0) * (Number(form.price) || 0)
+  function handleQtyChange(qty) {
+    setForm((f) => ({ ...f, qty, total: String((Number(qty) || 0) * (Number(f.price) || 0)) }))
+  }
+
+  function handlePriceChange(price) {
+    setForm((f) => ({ ...f, price, total: String((Number(f.qty) || 0) * (Number(price) || 0)) }))
+  }
 
   const rows = useMemo(
     () =>
@@ -62,7 +69,12 @@ export default function StockIn() {
   function handleSubmit(e) {
     e.preventDefault()
     if (!form.productCode.trim() || !form.qty) return
-    const payload = { ...form, qty: Number(form.qty) || 0, price: Number(form.price) || 0, total }
+    const payload = {
+      ...form,
+      qty: Number(form.qty) || 0,
+      price: Number(form.price) || 0,
+      total: Number(form.total) || 0,
+    }
     if (editingId) {
       updateStockIn(editingId, payload)
     } else {
@@ -81,6 +93,7 @@ export default function StockIn() {
       po: row.po,
       qty: String(row.qty),
       price: String(row.price),
+      total: String(row.total),
       soLot: row.soLot,
       customer: row.customer,
       note: row.note,
@@ -132,7 +145,7 @@ export default function StockIn() {
             <input
               type="number"
               value={form.qty}
-              onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
+              onChange={(e) => handleQtyChange(e.target.value)}
               className={inputClass()}
             />
           </FormField>
@@ -140,12 +153,17 @@ export default function StockIn() {
             <input
               type="number"
               value={form.price}
-              onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+              onChange={(e) => handlePriceChange(e.target.value)}
               className={inputClass()}
             />
           </FormField>
-          <FormField label="ราคารวม">
-            <input value={formatMoney(total)} readOnly className={inputClass('cursor-not-allowed opacity-70')} />
+          <FormField label="ราคารวม" hint="คำนวณอัตโนมัติ แต่แก้ไขเองได้">
+            <input
+              type="number"
+              value={form.total}
+              onChange={(e) => setForm((f) => ({ ...f, total: e.target.value }))}
+              className={inputClass()}
+            />
           </FormField>
           <FormField label="SO / LOT">
             <input

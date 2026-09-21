@@ -105,10 +105,19 @@ export function buildItemLedger(product, stockIns, stockOuts) {
     }
   })
 
+  const totalIn = rows
+    .filter((r) => r.kind === 'in')
+    .reduce((acc, r) => ({ qty: acc.qty + r.qty, value: acc.value + r.value }), { qty: 0, value: 0 })
+  const totalOut = rows
+    .filter((r) => r.kind === 'out')
+    .reduce((acc, r) => ({ qty: acc.qty + r.qty, value: acc.value + r.value }), { qty: 0, value: 0 })
+
   return {
     opening: { qty: Number(product.openingQty) || 0, value: (Number(product.openingQty) || 0) * (Number(product.unitPrice) || 0) },
     rows: ledger,
     closing: { qty: balQty, value: balValue },
+    totalIn,
+    totalOut,
   }
 }
 
