@@ -1,5 +1,19 @@
 import { ddmmyyyyToSortable } from './date'
 
+// Groups transactions by product code so per-product sums don't rescan every transaction
+// (matters with ~10k products).
+export function groupByCode(transactions) {
+  const map = new Map()
+  transactions.forEach((t) => {
+    const list = map.get(t.productCode)
+    if (list) list.push(t)
+    else map.set(t.productCode, [t])
+  })
+  return map
+}
+
+const EMPTY = []
+
 // Sum stock-in quantity/value for a given product code (optionally within a date range).
 export function sumStockIn(stockIns, code, { fromSortable, toSortable } = {}) {
   return stockIns
@@ -122,8 +136,12 @@ export function buildItemLedger(product, stockIns, stockOuts) {
 }
 
 // Builds the "all stock summary" report rows (Report 2) for a date range.
-export function buildAllStockSummary(products, stockIns, stockOuts, fromSortable, toSortable) {
+export function buildAllStockSummary(products, allStockIns, allStockOuts, fromSortable, toSortable) {
+  const insByCode = groupByCode(allStockIns)
+  const outsByCode = groupByCode(allStockOuts)
   return products.map((p) => {
+    const stockIns = insByCode.get(p.code) ?? EMPTY
+    const stockOuts = outsByCode.get(p.code) ?? EMPTY
     const before = {
       in: sumStockIn(stockIns, p.code, { toSortable: fromSortable != null ? fromSortable - 1 : undefined }),
       out: sumStockOut(stockOuts, p.code, { toSortable: fromSortable != null ? fromSortable - 1 : undefined }),

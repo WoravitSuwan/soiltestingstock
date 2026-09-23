@@ -4,8 +4,9 @@ import { Search, ListFilter, AlertTriangle, PackageSearch, Settings2 } from 'luc
 import SidebarLayout from '../components/SidebarLayout'
 import { inputClass } from '../components/FormField'
 import TransactionSearchModal from '../components/TransactionSearchModal'
+import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import { useStore } from '../store/useStore'
-import { currentBalance, sumStockIn, sumStockOut } from '../utils/stockCalc'
+import { currentBalance, groupByCode, sumStockIn, sumStockOut } from '../utils/stockCalc'
 import { thaiCompare, formatNumber } from '../utils/format'
 
 const LOW_STOCK_THRESHOLD = 5
@@ -21,13 +22,17 @@ export default function Stock() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
+    const insByCode = groupByCode(stockIns)
+    const outsByCode = groupByCode(stockOuts)
     const computed = [...products]
       .filter((p) => !q || p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
       .sort((a, b) => thaiCompare(a.code, b.code))
       .map((p) => {
-        const inSum = sumStockIn(stockIns, p.code)
-        const outSum = sumStockOut(stockOuts, p.code)
-        const bal = currentBalance(p, stockIns, stockOuts)
+        const ins = insByCode.get(p.code) ?? []
+        const outs = outsByCode.get(p.code) ?? []
+        const inSum = sumStockIn(ins, p.code)
+        const outSum = sumStockOut(outs, p.code)
+        const bal = currentBalance(p, ins, outs)
         return { ...p, inQty: inSum.qty, outQty: outSum.qty, qty: bal.qty }
       })
 
@@ -40,6 +45,7 @@ export default function Stock() {
     })
   }, [products, stockIns, stockOuts, query])
 
+  const page = useShowMore(rows, 100, query)
   const lowStockCount = rows.filter((r) => r.qty <= LOW_STOCK_THRESHOLD).length
 
   return (
@@ -88,7 +94,7 @@ export default function Stock() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {page.visible.map((r) => {
               const out = r.qty <= 0
               const low = r.qty <= LOW_STOCK_THRESHOLD
               return (
@@ -129,6 +135,7 @@ export default function Stock() {
           </tbody>
         </table>
       </div>
+      <ShowMoreButton shown={page.visible.length} total={rows.length} remaining={page.remaining} onMore={page.showMore} />
 
       <TransactionSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </SidebarLayout>

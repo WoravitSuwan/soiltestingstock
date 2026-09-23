@@ -14,7 +14,6 @@ const TYPE_OPTIONS = [
 ]
 
 // Search / edit / delete every row keyed in on the Stock In and Stock Out pages.
-// Used both as the full "In/Out Records" page and inside TransactionSearchModal.
 export default function TransactionSearchPanel({ initialType = 'all', onBeforeNavigate, tableMaxHeight }) {
   const stockIns = useStore((s) => s.stockIns)
   const stockOuts = useStore((s) => s.stockOuts)
@@ -80,7 +79,7 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
 
   function handleEdit(row) {
     onBeforeNavigate?.()
-    navigate(`${row.type === 'in' ? '/stock-in' : '/stock-out'}?edit=${row.id}&from=records`)
+    navigate(`${row.type === 'in' ? '/stock-in' : '/stock-out'}?edit=${row.id}`)
   }
 
   function handleDelete(row) {

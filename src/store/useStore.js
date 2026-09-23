@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { thaiCompare } from '../utils/format'
 import { genId } from '../utils/id'
 
@@ -26,6 +26,24 @@ const seedProducts = [
     openingQty: 10,
   },
 ]
+
+// localStorage holds ~5M characters per site; ~10k products take about 1M. If a save
+// ever fails (quota, private mode) tell the user instead of silently losing data.
+let warnedSaveFailure = false
+const safeLocalStorage = {
+  getItem: (name) => localStorage.getItem(name),
+  setItem: (name, value) => {
+    try {
+      localStorage.setItem(name, value)
+    } catch {
+      if (!warnedSaveFailure) {
+        warnedSaveFailure = true
+        alert('บันทึกข้อมูลลงเครื่องไม่สำเร็จ (พื้นที่เก็บข้อมูลของเบราว์เซอร์เต็ม) — ข้อมูลล่าสุดอาจหายเมื่อรีเฟรชหน้า')
+      }
+    }
+  },
+  removeItem: (name) => localStorage.removeItem(name),
+}
 
 export const useStore = create(
   persist(
@@ -120,6 +138,7 @@ export const useStore = create(
     }),
     {
       name: 'sts-stock-storage',
+      storage: createJSONStorage(() => safeLocalStorage),
     },
   ),
 )
