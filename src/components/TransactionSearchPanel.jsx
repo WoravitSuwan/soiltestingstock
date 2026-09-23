@@ -167,13 +167,13 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
                 </td>
                 <td className="px-3 py-3">{toThaiDate(r.date)}</td>
                 <td className="px-3 py-3 font-mono text-[var(--text-accent)]">{r.productCode}</td>
-                <td className="min-w-[180px] !whitespace-normal px-3 py-3">{r.productName}</td>
+                <td className="px-3 py-3">{r.productName}</td>
                 <td className="px-3 py-3 text-[var(--text-secondary)]">{r.docNo || '-'}</td>
-                <td className="min-w-[140px] !whitespace-normal px-3 py-3 text-[var(--text-secondary)]">{r.party || '-'}</td>
+                <td className="px-3 py-3 text-[var(--text-secondary)]">{r.party || '-'}</td>
                 <td className="px-3 py-3 text-right">{formatNumber(r.qty)}</td>
                 <td className="px-3 py-3 text-right">{formatMoney(r.price)}</td>
                 <td className="px-3 py-3 text-right font-semibold">{formatMoney(r.total)}</td>
-                <td className="min-w-[140px] !whitespace-normal px-3 py-3 text-[var(--text-muted)]">{r.note || ''}</td>
+                <td className="px-3 py-3 text-[var(--text-muted)]">{r.note || ''}</td>
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-center gap-2">
                     <button

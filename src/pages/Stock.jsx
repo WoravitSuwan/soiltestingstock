@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, ListFilter, AlertTriangle, PackageSearch, Settings2 } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { Search, AlertTriangle, ScanLine } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import { inputClass } from '../components/FormField'
-import TransactionSearchModal from '../components/TransactionSearchModal'
+import QrScannerModal from '../components/QrScannerModal'
 import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import { useStore } from '../store/useStore'
-import { currentBalance, groupByCode, sumStockIn, sumStockOut } from '../utils/stockCalc'
+import { groupByCode, sumStockIn, sumStockOut } from '../utils/stockCalc'
 import { thaiCompare, formatNumber } from '../utils/format'
 
+// "สินค้าเหลือน้อย" threshold: 5 units or fewer -> pinned to the top in red.
 const LOW_STOCK_THRESHOLD = 5
 
 export default function Stock() {
@@ -17,72 +17,75 @@ export default function Stock() {
   const stockOuts = useStore((s) => s.stockOuts)
 
   const [query, setQuery] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const navigate = useNavigate()
+  const [scanOpen, setScanOpen] = useState(false)
+
+  const allRows = useMemo(() => {
+    const insByCode = groupByCode(stockIns)
+    const outsByCode = groupByCode(stockOuts)
+    return products.map((p) => {
+      const ins = insByCode.get(p.code)
+      const outs = outsByCode.get(p.code)
+      const inQty = ins ? sumStockIn(ins, p.code).qty : 0
+      const outQty = outs ? sumStockOut(outs, p.code).qty : 0
+      const qty = inQty - outQty
+      // A product that has never been received isn't "running low" — it just isn't stocked.
+      const hasMovement = !!(ins || outs)
+      return { ...p, inQty, outQty, qty, hasMovement, low: hasMovement && qty <= LOW_STOCK_THRESHOLD }
+    })
+  }, [products, stockIns, stockOuts])
+
+  const lowStockCount = useMemo(() => allRows.filter((r) => r.low).length, [allRows])
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const insByCode = groupByCode(stockIns)
-    const outsByCode = groupByCode(stockOuts)
-    const computed = [...products]
+    return allRows
       .filter((p) => !q || p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
-      .sort((a, b) => thaiCompare(a.code, b.code))
-      .map((p) => {
-        const ins = insByCode.get(p.code) ?? []
-        const outs = outsByCode.get(p.code) ?? []
-        const inSum = sumStockIn(ins, p.code)
-        const outSum = sumStockOut(outs, p.code)
-        const bal = currentBalance(p, ins, outs)
-        return { ...p, inQty: inSum.qty, outQty: outSum.qty, qty: bal.qty }
+      .sort((a, b) => {
+        // low-stock items pinned to top; each group otherwise A-Z / ก-ฮ
+        if (a.low !== b.low) return a.low ? -1 : 1
+        return thaiCompare(a.code, b.code)
       })
-
-    // low-stock items pinned to top; each group otherwise stays A-Z
-    return computed.sort((a, b) => {
-      const aLow = a.qty <= LOW_STOCK_THRESHOLD ? 0 : 1
-      const bLow = b.qty <= LOW_STOCK_THRESHOLD ? 0 : 1
-      if (aLow !== bLow) return aLow - bLow
-      return thaiCompare(a.code, b.code)
-    })
-  }, [products, stockIns, stockOuts, query])
+  }, [allRows, query])
 
   const page = useShowMore(rows, 100, query)
-  const lowStockCount = rows.filter((r) => r.qty <= LOW_STOCK_THRESHOLD).length
+
+  const handleScan = useCallback((text) => setQuery(text), [])
 
   return (
-    <SidebarLayout title="สต๊อกสินค้า (Stock Management)">
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <SummaryCard icon={<PackageSearch size={18} />} label="จำนวนรายการสินค้า" value={formatNumber(rows.length)} color="text-[var(--text-accent)]" />
-        <SummaryCard icon={<AlertTriangle size={18} />} label={`สินค้าใกล้หมด (≤ ${LOW_STOCK_THRESHOLD})`} value={formatNumber(lowStockCount)} color="text-amber-300" />
-      </div>
-
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
+    <SidebarLayout
+      title="สินค้าคงเหลือ"
+      backTo="/"
+      subtitle={
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>สินค้าทั้งหมด {formatNumber(allRows.length)} รายการ</span>
+          {lowStockCount > 0 && (
+            <span className="flex items-center gap-1 font-medium text-red-400">
+              <AlertTriangle size={14} /> สินค้าเหลือน้อย: {formatNumber(lowStockCount)} รายการ
+            </span>
+          )}
+        </span>
+      }
+    >
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหารหัส / ชื่อสินค้า"
+            placeholder="ค้นหาโดยใช้รหัสสินค้า (SKU) หรือชื่อผลิตภัณฑ์..."
             className={inputClass('pl-9')}
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => navigate('/products')}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
-          >
-            <Settings2 size={16} /> จัดการรายการสินค้า
-          </button>
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
-          >
-            <ListFilter size={16} /> ค้นหา / แก้ไข / ลบ รายการเข้า-ออก
-          </button>
-        </div>
+        <button
+          onClick={() => setScanOpen(true)}
+          className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-500"
+        >
+          <ScanLine size={16} /> สแกนคิวอาร์
+        </button>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[640px] text-sm [&_th]:whitespace-nowrap [&_td:not(:nth-child(2))]:whitespace-nowrap">
           <thead>
             <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
               <th className="px-4 py-3 font-medium">รหัสสินค้า</th>
@@ -94,37 +97,23 @@ export default function Stock() {
             </tr>
           </thead>
           <tbody>
-            {page.visible.map((r) => {
-              const out = r.qty <= 0
-              const low = r.qty <= LOW_STOCK_THRESHOLD
-              return (
-                <tr
-                  key={r.code}
-                  className={`border-t border-[var(--border-color-soft)] hover:bg-[var(--bg-hover)] ${
-                    low ? 'text-red-400' : 'text-[var(--text-primary)]'
-                  }`}
-                >
-                  <td className={`px-4 py-3 font-mono ${low ? 'text-red-400' : 'text-[var(--text-accent)]'}`}>{r.code}</td>
-                  <td className="px-4 py-3">{r.name}</td>
-                  <td className="px-4 py-3 text-right">{formatNumber(r.inQty)}</td>
-                  <td className="px-4 py-3 text-right">{formatNumber(r.outQty)}</td>
-                  <td className="px-4 py-3 text-right font-bold">{formatNumber(r.qty)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                        out
-                          ? 'bg-red-500/15 text-red-400'
-                          : low
-                          ? 'bg-amber-500/15 text-amber-300'
-                          : 'bg-emerald-500/15 text-emerald-300'
-                      }`}
-                    >
-                      {out ? 'หมดสต๊อก' : low ? 'ใกล้หมด' : 'ปกติ'}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
+            {page.visible.map((r) => (
+              <tr
+                key={r.code}
+                className={`border-t border-[var(--border-color-soft)] hover:bg-[var(--bg-hover)] ${
+                  r.low ? 'text-red-400' : 'text-[var(--text-primary)]'
+                }`}
+              >
+                <td className={`px-4 py-3 font-mono ${r.low ? 'text-red-400' : 'text-[var(--text-accent)]'}`}>{r.code}</td>
+                <td className="px-4 py-3">{r.name}</td>
+                <td className="px-4 py-3 text-right">{formatNumber(r.inQty)}</td>
+                <td className="px-4 py-3 text-right">{formatNumber(r.outQty)}</td>
+                <td className="px-4 py-3 text-right font-bold">{formatNumber(r.qty)}</td>
+                <td className="px-4 py-3 text-center">
+                  <StatusBadge row={r} />
+                </td>
+              </tr>
+            ))}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-faint)]">
@@ -137,19 +126,18 @@ export default function Stock() {
       </div>
       <ShowMoreButton shown={page.visible.length} total={rows.length} remaining={page.remaining} onMore={page.showMore} />
 
-      <TransactionSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <QrScannerModal open={scanOpen} onClose={() => setScanOpen(false)} onResult={handleScan} />
     </SidebarLayout>
   )
 }
 
-function SummaryCard({ icon, label, value, color }) {
-  return (
-    <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
-      <div className={`mb-2 flex items-center gap-2 text-xs font-medium ${color}`}>
-        {icon}
-        {label}
-      </div>
-      <div className="text-2xl font-bold text-[var(--text-primary)]">{value}</div>
-    </div>
-  )
+function StatusBadge({ row }) {
+  if (!row.hasMovement) return <span className="text-xs text-[var(--text-faint)]">ยังไม่มีสต๊อก</span>
+  const [label, cls] =
+    row.qty <= 0
+      ? ['หมดสต๊อก', 'bg-red-500/15 text-red-400']
+      : row.low
+      ? ['ใกล้หมด', 'bg-amber-500/15 text-amber-300']
+      : ['ปกติ', 'bg-emerald-500/15 text-emerald-300']
+  return <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${cls}`}>{label}</span>
 }

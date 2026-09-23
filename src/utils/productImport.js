@@ -103,13 +103,6 @@ function cleanText(v) {
   return String(v ?? '').replace(/[\r\n\t]+/g, ' ').trim()
 }
 
-export function buildProductTemplateAoa() {
-  return [
-    ['รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วยละ'],
-    ['RM-0003', 'ตัวอย่างสินค้า', 1, 'EA', 100],
-  ]
-}
-
 export function buildProductExportAoa(products) {
   return [
     ['รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วยละ'],

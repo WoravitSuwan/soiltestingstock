@@ -3,29 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { thaiCompare } from '../utils/format'
 import { genId } from '../utils/id'
 
-const seedProducts = [
-  {
-    code: 'RM-0001',
-    name: 'ทรายมาตรฐาน (Standard Sand)',
-    unit: 'กก.',
-    unitPrice: 25,
-    openingQty: 500,
-  },
-  {
-    code: 'RM-0002',
-    name: 'ปูนซีเมนต์ปอร์ตแลนด์',
-    unit: 'กระสอบ',
-    unitPrice: 180,
-    openingQty: 120,
-  },
-  {
-    code: 'EQ-0001',
-    name: 'ชุดตรวจสอบดิน Proctor Test',
-    unit: 'ชุด',
-    unitPrice: 4500,
-    openingQty: 10,
-  },
-]
+// The system starts empty; products come from PRODUCT LIST (Add product / Import Excel).
+const seedProducts = []
 
 // localStorage holds ~5M characters per site; ~10k products take about 1M. If a save
 // ever fails (quota, private mode) tell the user instead of silently losing data.
@@ -51,6 +30,9 @@ export const useStore = create(
       products: seedProducts,
       stockIns: [],
       stockOuts: [],
+
+      // Wipes products and every Stock In / Stock Out row (login accounts are untouched).
+      clearAllData: () => set({ products: [], stockIns: [], stockOuts: [] }),
 
       // ---------- Products ----------
       addProduct: (product) =>
@@ -139,6 +121,11 @@ export const useStore = create(
     {
       name: 'sts-stock-storage',
       storage: createJSONStorage(() => safeLocalStorage),
+      // v1: one-time reset so the client starts testing from an empty system; data saved
+      // by the earlier (v0) builds is discarded the first time v1 loads.
+      version: 1,
+      migrate: (persisted, version) =>
+        version < 1 ? { products: [], stockIns: [], stockOuts: [] } : persisted,
     },
   ),
 )

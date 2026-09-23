@@ -1,26 +1,30 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ListFilter, PackagePlus } from 'lucide-react'
+import { ListFilter, Save } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
-import FormField, { inputClass } from '../components/FormField'
+import { FormRow, inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import ProductCodeField from '../components/ProductCodeField'
+import { WarehouseIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
 import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
+import { lineTotal } from '../utils/format'
 
-const emptyForm = {
-  date: todayDDMMYYYY(),
-  productCode: '',
-  productName: '',
-  supplier: '',
-  po: '',
-  qty: '',
-  price: '',
-  total: '',
-  soLot: '',
-  customer: '',
-  note: '',
+function makeEmptyForm() {
+  return {
+    date: todayDDMMYYYY(),
+    productCode: '',
+    productName: '',
+    supplier: '',
+    po: '',
+    qty: '',
+    price: '',
+    total: '',
+    soLot: '',
+    customer: '',
+    note: '',
+  }
 }
 
 export default function StockIn() {
@@ -28,10 +32,11 @@ export default function StockIn() {
   const addStockIn = useStore((s) => s.addStockIn)
   const updateStockIn = useStore((s) => s.updateStockIn)
 
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState(makeEmptyForm)
   const [editingId, setEditingId] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [savedMsg, setSavedMsg] = useState('')
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -43,41 +48,47 @@ export default function StockIn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+
   function handleQtyChange(qty) {
-    setForm((f) => ({ ...f, qty, total: String((Number(qty) || 0) * (Number(f.price) || 0)) }))
+    setForm((f) => ({ ...f, qty, total: lineTotal(qty, f.price) }))
   }
 
   function handlePriceChange(price) {
-    setForm((f) => ({ ...f, price, total: String((Number(f.qty) || 0) * (Number(price) || 0)) }))
+    setForm((f) => ({ ...f, price, total: lineTotal(f.qty, price) }))
   }
 
+  // Entering a code pops in the name and unit price from PRODUCT LIST; ราคารวม follows.
   function handleProductSelect(code, match) {
-    setForm((f) => ({ ...f, productCode: code, productName: match ? match.name : f.productName }))
+    setForm((f) => {
+      if (!match) return { ...f, productCode: code, productName: '' }
+      const price = String(Number(match.unitPrice) || 0)
+      return { ...f, productCode: code, productName: match.name, price, total: lineTotal(f.qty, price) }
+    })
   }
 
   function resetForm() {
-    setForm(emptyForm)
+    setForm(makeEmptyForm())
     setEditingId(null)
   }
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!form.productCode.trim() || !form.qty) return
-    if (!isValidDDMMYYYY(form.date)) {
-      alert('กรุณากรอกวันที่ให้ถูกต้อง (วว/ดด/ปปปป เป็น พ.ศ.)')
-      return
-    }
+    if (!isValidDDMMYYYY(form.date)) return alert('กรุณากรอกวันที่ให้ถูกต้อง (วว/ดด/ปปปป เป็น พ.ศ.)')
+    if (!form.productCode.trim()) return alert('กรุณากรอกรหัสสินค้า')
+    if (!form.productName) return alert('ไม่พบรหัสสินค้านี้ใน PRODUCT LIST')
+    if (!(Number(form.qty) > 0)) return alert('กรุณากรอกจำนวนให้มากกว่า 0')
     const payload = {
       ...form,
+      productCode: form.productCode.trim(),
       qty: Number(form.qty) || 0,
       price: Number(form.price) || 0,
       total: Number(form.total) || 0,
     }
-    if (editingId) {
-      updateStockIn(editingId, payload)
-    } else {
-      addStockIn(payload)
-    }
+    if (editingId) updateStockIn(editingId, payload)
+    else addStockIn(payload)
+    setSavedMsg(editingId ? 'บันทึกการแก้ไขเรียบร้อย' : `บันทึกรับสินค้า ${payload.productCode} เรียบร้อย`)
+    setTimeout(() => setSavedMsg(''), 3000)
     resetForm()
   }
 
@@ -87,19 +98,19 @@ export default function StockIn() {
       date: row.date,
       productCode: row.productCode,
       productName: row.productName,
-      supplier: row.supplier,
-      po: row.po,
+      supplier: row.supplier ?? '',
+      po: row.po ?? '',
       qty: String(row.qty),
       price: String(row.price),
       total: String(row.total),
-      soLot: row.soLot,
-      customer: row.customer,
-      note: row.note,
+      soLot: row.soLot ?? '',
+      customer: row.customer ?? '',
+      note: row.note ?? '',
     })
   }
 
   return (
-    <SidebarLayout title="บันทึกรับสินค้าเข้า (Stock In)">
+    <SidebarLayout title="บันทึกรับสินค้าเข้า" backTo="/">
       <div className="mb-4 flex justify-end">
         <button
           type="button"
@@ -109,85 +120,59 @@ export default function StockIn() {
           <ListFilter size={16} /> ค้นหา / แก้ไข / ลบ รายการที่บันทึกแล้ว
         </button>
       </div>
+
       <form
         onSubmit={handleSubmit}
-        className="mb-8 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 shadow-card"
+        className="mb-8 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 shadow-card sm:p-6"
       >
-        <div className="mb-4 flex items-center gap-2 text-orange-400">
-          <PackagePlus size={18} />
-          <span className="text-sm font-semibold">{editingId ? 'แก้ไขรายการรับสินค้า' : 'เพิ่มรายการรับสินค้าใหม่'}</span>
+        <div className="mb-3 text-center text-sm font-semibold text-orange-400">
+          {editingId ? 'แก้ไขรายการรับสินค้า' : 'ใบรับสินค้าเข้า'}
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <FormField label="วันที่" required>
-            <DateTextInput value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
-          </FormField>
-          <FormField label="รหัสสินค้า" required>
-            <ProductCodeField value={form.productCode} onSelect={handleProductSelect} listId="in-product-codes" />
-          </FormField>
-          <FormField label="ชื่อสินค้า">
-            <input value={form.productName} readOnly className={inputClass('cursor-not-allowed opacity-70')} />
-          </FormField>
-          <FormField label="ผู้ผลิต / ผู้ขาย">
-            <input
-              value={form.supplier}
-              onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="PO" hint="เช่น PO-256900202">
-            <input
-              value={form.po}
-              onChange={(e) => setForm((f) => ({ ...f, po: e.target.value }))}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="จำนวน" required>
-            <input
-              type="number"
-              value={form.qty}
-              onChange={(e) => handleQtyChange(e.target.value)}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="ราคา / หน่วย">
-            <input
-              type="number"
-              value={form.price}
-              onChange={(e) => handlePriceChange(e.target.value)}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="ราคารวม" hint="คำนวณอัตโนมัติ แต่แก้ไขเองได้">
-            <input
-              type="number"
-              value={form.total}
-              onChange={(e) => setForm((f) => ({ ...f, total: e.target.value }))}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="SO / LOT">
-            <input
-              value={form.soLot}
-              onChange={(e) => setForm((f) => ({ ...f, soLot: e.target.value }))}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="ลูกค้า / หน่วยงาน">
-            <input
-              value={form.customer}
-              onChange={(e) => setForm((f) => ({ ...f, customer: e.target.value }))}
-              className={inputClass()}
-            />
-          </FormField>
-          <FormField label="หมายเหตุ" hint="">
-            <input
-              value={form.note}
-              onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-              className={inputClass()}
-            />
-          </FormField>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+          <div className="min-w-0 flex-1">
+            <FormRow label="1. วันที่" required>
+              <DateTextInput value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
+            </FormRow>
+            <FormRow label="2. รหัสสินค้า" required>
+              <ProductCodeField value={form.productCode} onSelect={handleProductSelect} listId="in-product-codes" />
+            </FormRow>
+            <FormRow label="3. ชื่อสินค้า">
+              <input value={form.productName} readOnly placeholder="ขึ้นอัตโนมัติจาก PRODUCT LIST" className={inputClass('cursor-not-allowed opacity-80')} />
+            </FormRow>
+            <FormRow label="4. ผู้ผลิต / ผู้ขาย">
+              <input value={form.supplier} onChange={set('supplier')} className={inputClass()} />
+            </FormRow>
+            <FormRow label="5. PO">
+              <input value={form.po} onChange={set('po')} placeholder="PO-XXXXXXXXX" className={inputClass()} />
+            </FormRow>
+            <FormRow label="6. จำนวน" required>
+              <input type="number" min="0" step="any" value={form.qty} onChange={(e) => handleQtyChange(e.target.value)} className={inputClass()} />
+            </FormRow>
+            <FormRow label="7. ราคา / หน่วย">
+              <input type="number" min="0" step="any" value={form.price} onChange={(e) => handlePriceChange(e.target.value)} className={inputClass()} />
+            </FormRow>
+            <FormRow label="8. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
+              <input type="number" min="0" step="any" value={form.total} onChange={set('total')} className={inputClass()} />
+            </FormRow>
+            <FormRow label="9. SO / LOT">
+              <input value={form.soLot} onChange={set('soLot')} className={inputClass()} />
+            </FormRow>
+            <FormRow label="10. ลูกค้า / หน่วยงาน">
+              <input value={form.customer} onChange={set('customer')} className={inputClass()} />
+            </FormRow>
+            <FormRow label="11. หมายเหตุ">
+              <input value={form.note} onChange={set('note')} className={inputClass()} />
+            </FormRow>
+          </div>
+          <div className="hidden w-56 flex-shrink-0 justify-center lg:flex">
+            <div className="w-40">
+              <WarehouseIllustration />
+            </div>
+          </div>
         </div>
-        <div className="mt-6 flex justify-end gap-3">
+
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+          {savedMsg && <span className="mr-auto text-sm text-emerald-300">{savedMsg}</span>}
           {editingId && (
             <button
               type="button"
@@ -199,9 +184,9 @@ export default function StockIn() {
           )}
           <button
             type="submit"
-            className="rounded-lg bg-orange-600 px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-orange-500"
+            className="flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500"
           >
-            {editingId ? 'บันทึกการแก้ไข' : 'บันทึกรับสินค้า'}
+            <Save size={16} /> {editingId ? 'บันทึกการแก้ไข' : 'Save'}
           </button>
         </div>
       </form>
