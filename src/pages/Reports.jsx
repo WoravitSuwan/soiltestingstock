@@ -5,7 +5,7 @@ import ProductPickerModal from '../components/ProductPickerModal'
 import DateTextInput from '../components/DateTextInput'
 import { useStore } from '../store/useStore'
 import { buildItemLedger, buildAllStockSummary } from '../utils/stockCalc'
-import { ddmmyyyyToSortable, todayDDMMYYYY } from '../utils/date'
+import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber, thaiCompare } from '../utils/format'
 import { exportAoaToExcel, exportElementToPdf } from '../utils/export'
 
@@ -102,7 +102,7 @@ function ItemLedgerReport() {
       aoa.push(['ยอดยกมา', '', '', '', '', '', '', '', ledger.opening.qty, ledger.opening.value, '', ''])
       ledger.rows.forEach((r) => {
         aoa.push([
-          r.date,
+          toThaiDate(r.date),
           r.docNo,
           r.kind === 'in' ? r.qty : '',
           r.kind === 'in' ? r.price : '',
@@ -195,21 +195,7 @@ function ItemLedgerTable({ product, ledger }) {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-        <table className="w-full min-w-[900px] table-fixed text-xs">
-          <colgroup>
-            <col className="w-[8%]" />
-            <col className="w-[9%]" />
-            <col className="w-[6%]" />
-            <col className="w-[7%]" />
-            <col className="w-[8%]" />
-            <col className="w-[6%]" />
-            <col className="w-[7%]" />
-            <col className="w-[8%]" />
-            <col className="w-[7%]" />
-            <col className="w-[9%]" />
-            <col className="w-[13%]" />
-            <col className="w-[12%]" />
-          </colgroup>
+        <table className="w-full min-w-[1100px] text-xs [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
           <thead>
             <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 align-bottom">วันที่</th>
@@ -240,8 +226,8 @@ function ItemLedgerTable({ product, ledger }) {
             </tr>
             {ledger.rows.map((r, idx) => (
               <tr key={idx} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                <td className="truncate px-2 py-2">{r.date}</td>
-                <td className="truncate px-2 py-2" title={r.docNo}>{r.docNo}</td>
+                <td className="px-2 py-2">{toThaiDate(r.date)}</td>
+                <td className="px-2 py-2">{r.docNo}</td>
                 <td className="px-2 py-2 text-right">{r.kind === 'in' ? formatNumber(r.qty) : ''}</td>
                 <td className="px-2 py-2 text-right">{r.kind === 'in' ? formatMoney(r.price) : ''}</td>
                 <td className="px-2 py-2 text-right">{r.kind === 'in' ? formatMoney(r.value) : ''}</td>
@@ -250,8 +236,8 @@ function ItemLedgerTable({ product, ledger }) {
                 <td className="px-2 py-2 text-right">{r.kind === 'out' ? formatMoney(r.value) : ''}</td>
                 <td className="px-2 py-2 text-right font-medium">{formatNumber(r.balanceQty)}</td>
                 <td className="px-2 py-2 text-right font-medium">{formatMoney(r.balanceValue)}</td>
-                <td className="truncate px-2 py-2 text-[var(--text-secondary)]" title={r.party}>{r.party}</td>
-                <td className="truncate px-2 py-2 text-[var(--text-muted)]" title={r.note}>
+                <td className="min-w-[140px] !whitespace-normal px-2 py-2 text-[var(--text-secondary)]">{r.party}</td>
+                <td className="min-w-[160px] !whitespace-normal px-2 py-2 text-[var(--text-muted)]">
                   {r.note}
                   {r.kind === 'out' && r.isReservation && (
                     <span className="ml-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
@@ -333,7 +319,7 @@ function AllStockSummaryReport() {
 
   function handleExportExcel() {
     const aoa = [
-      [`รายงานสินค้าคงเหลือรวมทุกคลัง (${from} - ${to})`],
+      [`รายงานสินค้าคงเหลือรวมทุกคลัง (${toThaiDate(from)} - ${toThaiDate(to)})`],
       [],
       ['รหัส', 'ชื่อสินค้า', 'ยอดยกมา-จำนวน', 'ยอดยกมา-เป็นเงิน', 'ซื้อ/รับเข้า-จำนวน', 'ซื้อ/รับเข้า-เป็นเงิน', 'ออก/จ่ายออก-จำนวน', 'ออก/จ่ายออก-เป็นเงิน', 'คงเหลือ-จำนวน', 'คงเหลือ-เป็นเงิน'],
       ...rows.map((r) => [
@@ -391,7 +377,7 @@ function AllStockSummaryReport() {
 
       <div ref={printRef} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
         <div className="mb-4 text-sm text-[var(--text-muted)]">
-          รายงานสินค้าคงเหลือรวมทุกคลัง: {from} - {to} (เรียงตาม รหัส/ชื่อสินค้า A-Z / ก-ฮ)
+          รายงานสินค้าคงเหลือรวมทุกคลัง: {toThaiDate(from)} - {toThaiDate(to)} (เรียงตาม รหัส/ชื่อสินค้า A-Z / ก-ฮ)
         </div>
         <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
           <table className="w-full min-w-[980px] text-xs">

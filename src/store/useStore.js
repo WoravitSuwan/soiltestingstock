@@ -41,16 +41,48 @@ export const useStore = create(
         })),
 
       updateProduct: (code, updates) =>
-        set((state) => ({
-          products: state.products
-            .map((p) => (p.code === code ? { ...p, ...updates } : p))
-            .sort((a, b) => thaiCompare(a.code, b.code)),
-        })),
+        set((state) => {
+          const syncName = (t) =>
+            updates.name !== undefined && t.productCode === code ? { ...t, productName: updates.name } : t
+          return {
+            products: state.products
+              .map((p) => (p.code === code ? { ...p, ...updates } : p))
+              .sort((a, b) => thaiCompare(a.code, b.code)),
+            stockIns: state.stockIns.map(syncName),
+            stockOuts: state.stockOuts.map(syncName),
+          }
+        }),
 
       deleteProduct: (code) =>
         set((state) => ({
           products: state.products.filter((p) => p.code !== code),
         })),
+
+      // Applies a plan from planProductImport in one go: adds new codes, overwrites changed
+      // ones with the file's data, optionally removes codes missing from the file, and keeps
+      // the product name copied onto existing Stock In / Stock Out rows in sync.
+      applyProductImport: (plan) =>
+        set((state) => {
+          const updatesByCode = new Map(plan.updated.map((u) => [u.code, u.updates]))
+          const removedCodes = new Set(plan.removed.map((p) => p.code))
+          const products = [
+            ...state.products
+              .filter((p) => !removedCodes.has(p.code))
+              .map((p) => (updatesByCode.has(p.code) ? { ...p, ...updatesByCode.get(p.code) } : p)),
+            ...plan.added,
+          ].sort((a, b) => thaiCompare(a.code, b.code))
+
+          const renamed = new Map(
+            plan.updated.filter((u) => u.updates.name !== undefined).map((u) => [u.code, u.updates.name]),
+          )
+          const syncName = (t) => (renamed.has(t.productCode) ? { ...t, productName: renamed.get(t.productCode) } : t)
+
+          return {
+            products,
+            stockIns: renamed.size ? state.stockIns.map(syncName) : state.stockIns,
+            stockOuts: renamed.size ? state.stockOuts.map(syncName) : state.stockOuts,
+          }
+        }),
 
       getProduct: (code) => get().products.find((p) => p.code === code),
 

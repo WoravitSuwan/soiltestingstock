@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { PackagePlus } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ListFilter, PackagePlus } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import FormField, { inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
 import ProductCodeField from '../components/ProductCodeField'
 import { useStore } from '../store/useStore'
-import { todayDDMMYYYY } from '../utils/date'
+import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
 
 const emptyForm = {
   date: todayDDMMYYYY(),
@@ -30,12 +30,15 @@ export default function StockIn() {
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
+  const [returnToRecords, setReturnToRecords] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (editId) {
       const row = stockIns.find((t) => t.id === editId)
       if (row) handleEdit(row)
+      setReturnToRecords(searchParams.get('from') === 'records')
       setSearchParams({}, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,11 +59,16 @@ export default function StockIn() {
   function resetForm() {
     setForm(emptyForm)
     setEditingId(null)
+    if (returnToRecords) navigate('/records?type=in')
   }
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!form.productCode.trim() || !form.qty) return
+    if (!isValidDDMMYYYY(form.date)) {
+      alert('กรุณากรอกวันที่ให้ถูกต้อง (วว/ดด/ปปปป เป็น พ.ศ.)')
+      return
+    }
     const payload = {
       ...form,
       qty: Number(form.qty) || 0,
@@ -94,6 +102,15 @@ export default function StockIn() {
 
   return (
     <SidebarLayout title="บันทึกรับสินค้าเข้า (Stock In)">
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => navigate('/records?type=in')}
+          className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+        >
+          <ListFilter size={16} /> ค้นหา / แก้ไข / ลบ รายการที่บันทึกแล้ว
+        </button>
+      </div>
       <form
         onSubmit={handleSubmit}
         className="mb-8 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 shadow-card"
