@@ -83,3 +83,10 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+
+/* Keep every table cell on one line so rows stay easy to scan (tables scroll sideways
+   on small screens instead of wrapping codes, names, numbers and badges). */
+table th,
+table td {
+  white-space: nowrap;
+}

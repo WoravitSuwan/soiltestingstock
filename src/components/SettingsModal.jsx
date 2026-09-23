@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Moon, Sun, Users, Eye, EyeOff, Copy, Check, Plus, Trash2, ShieldCheck } from 'lucide-react'
+import { Moon, Sun, Users, Eye, EyeOff, Copy, Check, Plus, Trash2, ShieldCheck, DatabaseZap } from 'lucide-react'
 import Modal from './Modal'
 import { inputClass } from './FormField'
 import { useThemeStore } from '../store/useThemeStore'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+import { useStore } from '../store/useStore'
 
 export default function SettingsModal({ open, onClose }) {
   const currentUser = useCurrentUser()
@@ -37,7 +38,14 @@ export default function SettingsModal({ open, onClose }) {
         )}
       </div>
 
-      {tab === 'theme' ? <ThemeTab /> : <UsersTab currentUser={currentUser} />}
+      {tab === 'theme' ? (
+        <>
+          <ThemeTab />
+          {isAdmin && <ClearDataSection />}
+        </>
+      ) : (
+        <UsersTab currentUser={currentUser} />
+      )}
     </Modal>
   )
 }
@@ -52,7 +60,7 @@ function ThemeTab() {
       <div className="grid grid-cols-2 gap-4">
         <button
           onClick={() => setTheme('dark')}
-          className={`flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition ${
+          className={`flex flex-col items-center gap-3 rounded-xl border-2 px-2 py-5 transition ${
             theme === 'dark'
               ? 'border-blue-500 bg-[var(--bg-hover)]'
               : 'border-[var(--border-color)] hover:bg-[var(--bg-hover)]'
@@ -61,13 +69,13 @@ function ThemeTab() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0B0F19] ring-1 ring-white/10">
             <Moon size={22} className="text-blue-300" />
           </div>
-          <span className="text-sm font-semibold text-[var(--text-primary)]">Dark Mode</span>
-          <span className="text-xs text-[var(--text-faint)]">โทนน้ำเงินเข้ม (ค่าเริ่มต้น)</span>
+          <span className="whitespace-nowrap text-sm font-semibold text-[var(--text-primary)]">Dark Mode</span>
+          <span className="whitespace-nowrap text-xs text-[var(--text-faint)]">โทนน้ำเงินเข้ม</span>
         </button>
 
         <button
           onClick={() => setTheme('light')}
-          className={`flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition ${
+          className={`flex flex-col items-center gap-3 rounded-xl border-2 px-2 py-5 transition ${
             theme === 'light'
               ? 'border-blue-500 bg-[var(--bg-hover)]'
               : 'border-[var(--border-color)] hover:bg-[var(--bg-hover)]'
@@ -76,10 +84,43 @@ function ThemeTab() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white ring-1 ring-black/10">
             <Sun size={22} className="text-amber-500" />
           </div>
-          <span className="text-sm font-semibold text-[var(--text-primary)]">Light Mode</span>
-          <span className="text-xs text-[var(--text-faint)]">โทนสว่าง คอนทราสต์สูง</span>
+          <span className="whitespace-nowrap text-sm font-semibold text-[var(--text-primary)]">Light Mode</span>
+          <span className="whitespace-nowrap text-xs text-[var(--text-faint)]">โทนสว่าง</span>
         </button>
       </div>
+    </div>
+  )
+}
+
+// Admin-only reset: removes all products and Stock In / Stock Out rows (keeps users).
+function ClearDataSection() {
+  const clearAllData = useStore((s) => s.clearAllData)
+  const productCount = useStore((s) => s.products.length)
+  const txCount = useStore((s) => s.stockIns.length + s.stockOuts.length)
+  const [done, setDone] = useState(false)
+
+  function handleClear() {
+    if (!confirm(`ลบข้อมูลทั้งหมด: สินค้า ${productCount.toLocaleString('th-TH')} รายการ และรายการรับเข้า-จ่ายออก ${txCount.toLocaleString('th-TH')} รายการ?`)) return
+    if (!confirm('ยืนยันอีกครั้ง — ลบแล้วกู้คืนไม่ได้')) return
+    clearAllData()
+    setDone(true)
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-red-400">
+        <DatabaseZap size={16} /> ลบข้อมูลทั้งหมด
+      </div>
+      <p className="mb-3 text-xs text-[var(--text-muted)]">
+        ลบรายการสินค้าและรายการรับเข้า-จ่ายออกทั้งหมดในเครื่องนี้ (บัญชีผู้ใช้ไม่ถูกลบ)
+      </p>
+      <button
+        onClick={handleClear}
+        className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-500"
+      >
+        ลบข้อมูลทั้งหมด
+      </button>
+      {done && <span className="ml-3 text-xs text-emerald-300">ลบข้อมูลเรียบร้อย</span>}
     </div>
   )
 }

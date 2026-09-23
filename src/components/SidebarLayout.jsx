@@ -26,18 +26,18 @@ export default function SidebarLayout({ title, heading, subtitle, backTo, childr
         </div>
 
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
-          <div className="mb-6 flex items-start gap-3">
+          <div className={`mb-5 items-start gap-3 md:mb-6 ${heading || subtitle ? 'flex' : 'hidden md:flex'}`}>
             {backTo && (
               <button
                 onClick={() => navigate(backTo)}
                 aria-label="ย้อนกลับ"
-                className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+                className="mt-0.5 hidden h-9 w-9 flex-shrink-0 md:flex items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
               >
                 <ArrowLeft size={17} />
               </button>
             )}
             <div className="min-w-0">
-              <h1 className={`text-2xl font-bold text-[var(--text-primary)] ${heading ? '' : 'hidden md:block'}`}>
+              <h1 className={`whitespace-nowrap text-2xl font-bold text-[var(--text-primary)] ${heading ? '' : 'hidden md:block'}`}>
                 {heading ?? title}
               </h1>
               {subtitle && <div className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</div>}

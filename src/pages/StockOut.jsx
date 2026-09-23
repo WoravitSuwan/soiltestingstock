@@ -161,7 +161,7 @@ export default function StockOut() {
             <FormRow label="5. INVOICE">
               <input value={form.invoice} onChange={set('invoice')} placeholder="IV-XXXXXXXXX" className={inputClass()} />
             </FormRow>
-            <FormRow label="6. SO" hint="ถ้าใส่ช่องนี้คือการจองสินค้า ถ้าออกอินวอยแล้วไม่ต้องพิมพ์ SO">
+            <FormRow label="6. SO" hint="ใส่ SO = จองสินค้า (ออกอินวอยแล้วไม่ต้องใส่)">
               <input value={form.so} onChange={set('so')} placeholder="SO-XXXXXXXXX" className={inputClass()} />
             </FormRow>
             <FormRow label="7. จำนวน" required>
@@ -170,7 +170,7 @@ export default function StockOut() {
             <FormRow label="8. ราคา / หน่วย">
               <input type="number" min="0" step="any" value={form.price} onChange={(e) => handlePriceChange(e.target.value)} className={inputClass()} />
             </FormRow>
-            <FormRow label="9. ราคารวม" hint="คำนวณอัตโนมัติ (จำนวน × ราคา/หน่วย) และแก้ไขเองได้">
+            <FormRow label="9. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
               <input type="number" min="0" step="any" value={form.total} onChange={set('total')} className={inputClass()} />
             </FormRow>
             <FormRow label="10. หมายเหตุ">

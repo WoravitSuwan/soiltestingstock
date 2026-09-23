@@ -94,17 +94,20 @@ function ExportButtons({ onPdf, onExcel }) {
 
 // Date range inputs + "ค้นหาตามวันที่": the range only applies when the button is pressed
 // (or Enter), so half-typed dates don't reshuffle the report.
-function DateRangeBar({ from, to, onApply }) {
+// `optional`: blank dates are allowed and mean "from the beginning" / "up to now".
+function DateRangeBar({ from, to, onApply, optional = false }) {
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
 
   function apply(e) {
     e.preventDefault()
+    const blankFrom = optional && !draftFrom.trim()
+    const blankTo = optional && !draftTo.trim()
     const f = ddmmyyyyToSortable(draftFrom)
     const t = ddmmyyyyToSortable(draftTo)
-    if (!f || !t) return alert('กรุณากรอกวันที่ให้ถูกต้อง (วว/ดด/ปปปป เป็น พ.ศ.)')
-    if (f > t) return alert('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด')
-    onApply(draftFrom, draftTo)
+    if ((!f && !blankFrom) || (!t && !blankTo)) return alert('กรุณากรอกวันที่ให้ถูกต้อง (วว/ดด/ปปปป เป็น พ.ศ.)')
+    if (f && t && f > t) return alert('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด')
+    onApply(blankFrom ? '' : draftFrom, blankTo ? '' : draftTo)
   }
 
   return (
@@ -115,16 +118,16 @@ function DateRangeBar({ from, to, onApply }) {
       </div>
       <div className="flex items-start gap-2">
         <div className="w-36">
-          <DateTextInput value={draftFrom} onChange={setDraftFrom} />
+          <DateTextInput value={draftFrom} onChange={setDraftFrom} placeholder={optional ? 'ตั้งแต่ (ทั้งหมด)' : undefined} />
         </div>
         <span className="pt-2.5 text-[var(--text-faint)]">—</span>
         <div className="w-36">
-          <DateTextInput value={draftTo} onChange={setDraftTo} />
+          <DateTextInput value={draftTo} onChange={setDraftTo} placeholder={optional ? 'ถึง (ปัจจุบัน)' : undefined} />
         </div>
       </div>
       <button
         type="submit"
-        className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500"
+        className="flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500"
       >
         <Search size={14} /> ค้นหาตามวันที่
       </button>
@@ -140,11 +143,15 @@ function ItemLedgerReport() {
   const [pickerOpen, setPickerOpen] = useState(true)
   const [selected, setSelected] = useState(null) // null | 'ALL' | product
   const [includeIdle, setIncludeIdle] = useState(false) // ALL view: also list products with no movement
-  const [range, setRange] = useState(() => ({ from: startOfYear(), to: todayDDMMYYYY() }))
+  // like the spec, the report lists every movement by default; a start date adds ยอดยกมา
+  const [range, setRange] = useState({ from: '', to: '' })
   const printRef = useRef(null)
 
   const bounds = useMemo(
-    () => ({ fromSortable: ddmmyyyyToSortable(range.from), toSortable: ddmmyyyyToSortable(range.to) }),
+    () => ({
+      fromSortable: ddmmyyyyToSortable(range.from) ?? undefined,
+      toSortable: ddmmyyyyToSortable(range.to) ?? undefined,
+    }),
     [range],
   )
 
@@ -172,12 +179,14 @@ function ItemLedgerReport() {
   function handleExportExcel() {
     if (!selected) return
     const blocks = selected === 'ALL' ? allLedgers : [{ product: selected, ledger: singleLedger }]
-    const aoa = [[`รายงานสินค้าและวัตถุดิบ (${toThaiDate(range.from)} - ${toThaiDate(range.to)})`]]
+    const aoa = [[`รายงานสินค้าและวัตถุดิบ${rangeLabel(range)}`]]
     blocks.forEach(({ product, ledger }) => {
       aoa.push([])
       aoa.push([`รหัสสินค้า: ${product.code}`, '', `ชื่อสินค้า: ${product.name}`])
       aoa.push(['วันที่', 'เลขเอกสาร', 'รับ-จำนวน', 'รับ-ราคา', 'รับ-มูลค่า', 'จ่าย-จำนวน', 'จ่าย-ราคา', 'จ่าย-มูลค่า', 'คงเหลือ-จำนวน', 'คงเหลือ-ราคา', 'คงเหลือ-มูลค่า', 'ผู้ขาย/ลูกค้า', 'หมายเหตุ'])
-      aoa.push([toThaiDate(range.from), 'ยอดยกมา', '', '', '', '', '', '', ledger.opening.qty, avgPrice(ledger.opening), ledger.opening.value, '', ''])
+      if (range.from) {
+        aoa.push([toThaiDate(range.from), 'ยอดยกมา', '', '', '', '', '', '', ledger.opening.qty, avgPrice(ledger.opening), ledger.opening.value, '', ''])
+      }
       ledger.rows.forEach((r) => {
         const isIn = r.kind === 'in'
         aoa.push([
@@ -213,22 +222,26 @@ function ItemLedgerReport() {
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <button
           onClick={() => setPickerOpen(true)}
-          className="flex items-center gap-2 self-start rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+          className="flex min-w-0 max-w-full items-center gap-2 self-start rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
         >
-          <PackageSearch size={16} />
+          <PackageSearch size={16} className="flex-shrink-0" />
+          <span className="truncate">
           {selected === 'ALL'
             ? 'สินค้าทั้งหมด (*)'
             : selected
             ? `${selected.code} — ${selected.name}`
             : 'รหัสสินค้า — กรอกรหัส หรือ * เพื่อดูทั้งหมด'}
+          </span>
         </button>
         {selected && <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} />}
       </div>
 
       <div className="mb-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-        <DateRangeBar from={range.from} to={range.to} onApply={(from, to) => setRange({ from, to })} />
+        <DateRangeBar optional from={range.from} to={range.to} onApply={(from, to) => setRange({ from, to })} />
         <p className="mt-2 text-xs text-[var(--text-faint)]">
-          ยอดยกมา = ยอดคงเหลือจากรายการรับ-จ่ายก่อนวันที่ {toThaiDate(range.from)}
+          {range.from
+            ? `ยอดยกมา = ยอดคงเหลือจากรายการรับ-จ่ายก่อนวันที่ ${toThaiDate(range.from)}`
+            : 'ไม่ใส่วันที่ = แสดงทุกรายการ'}
         </p>
       </div>
 
@@ -281,6 +294,11 @@ function ItemLedgerReport() {
   )
 }
 
+function rangeLabel({ from, to }) {
+  if (!from && !to) return ''
+  return ` (${from ? toThaiDate(from) : 'เริ่มต้น'} - ${to ? toThaiDate(to) : 'ปัจจุบัน'})`
+}
+
 function avgPrice({ qty, value }) {
   return qty !== 0 ? value / qty : 0
 }
@@ -291,11 +309,11 @@ function ItemLedgerTable({ product, ledger, from }) {
   return (
     <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
       <div className="mb-1 text-center text-lg font-bold text-[var(--text-primary)]">รายงานสินค้าและวัตถุดิบ</div>
-      <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        <span className="text-[var(--text-secondary)]">
+      <div className="mb-4 flex flex-col gap-1 text-sm sm:flex-row sm:gap-6">
+        <span className="whitespace-nowrap text-[var(--text-secondary)]">
           รหัสสินค้า : <span className="font-semibold text-red-400">{product.code}</span>
         </span>
-        <span className="text-[var(--text-secondary)]">
+        <span className="truncate text-[var(--text-secondary)]" title={product.name}>
           ชื่อสินค้า : <span className="font-semibold text-red-400">{product.name}</span>
         </span>
       </div>
@@ -319,6 +337,7 @@ function ItemLedgerTable({ product, ledger, from }) {
             </tr>
           </thead>
           <tbody>
+            {from && (
             <tr className="border-t border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
               <td className="px-2 py-2 font-semibold">{toThaiDate(from)}</td>
               <td className="px-2 py-2 font-semibold">ยอดยกมา</td>
@@ -328,13 +347,18 @@ function ItemLedgerTable({ product, ledger, from }) {
               <td className={`${numCell} font-semibold`}>{formatMoney(ledger.opening.value)}</td>
               <td></td>
             </tr>
+            )}
             {ledger.rows.map((r, idx) => {
               const isIn = r.kind === 'in'
               return (
                 <tr
                   key={idx}
                   className={`border-t border-[var(--border-color-soft)] hover:bg-[var(--bg-hover)] ${
-                    r.isReservation ? 'bg-amber-500/10 text-amber-200' : 'text-[var(--text-primary)]'
+                    r.isReservation
+                      ? 'bg-amber-400/20 text-amber-200'
+                      : isIn
+                      ? 'text-emerald-300'
+                      : 'text-[var(--text-primary)]'
                   }`}
                 >
                   <td className="px-2 py-2">{toThaiDate(r.date)}</td>
@@ -348,14 +372,14 @@ function ItemLedgerTable({ product, ledger, from }) {
                   <td className={`${numCell} font-medium`}>{formatNumber(r.balanceQty)}</td>
                   <td className={`${numCell} font-medium`}>{formatMoney(r.balancePrice)}</td>
                   <td className={`${numCell} font-medium`}>{formatMoney(r.balanceValue)}</td>
-                  <td className="min-w-[180px] !whitespace-normal px-2 py-2 text-[var(--text-secondary)]">
+                  <td className="px-2 py-2 text-[var(--text-secondary)]">
                     {r.party}
                     {r.isReservation && (
                       <span className="ml-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
                         จองสินค้า (SO)
                       </span>
                     )}
-                    {r.note && <div className="text-[11px] text-[var(--text-faint)]">{r.note}</div>}
+                    {r.note && <span className="ml-2 text-[11px] text-[var(--text-faint)]">· {r.note}</span>}
                   </td>
                 </tr>
               )
@@ -363,7 +387,7 @@ function ItemLedgerTable({ product, ledger, from }) {
             {ledger.rows.length === 0 && (
               <tr>
                 <td colSpan={12} className="px-2 py-6 text-center text-[var(--text-faint)]">
-                  ไม่มีรายการเคลื่อนไหวในช่วงวันที่นี้
+                  ไม่มีรายการเคลื่อนไหว
                 </td>
               </tr>
             )}

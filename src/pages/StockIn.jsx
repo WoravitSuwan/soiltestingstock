@@ -151,7 +151,7 @@ export default function StockIn() {
             <FormRow label="7. ราคา / หน่วย">
               <input type="number" min="0" step="any" value={form.price} onChange={(e) => handlePriceChange(e.target.value)} className={inputClass()} />
             </FormRow>
-            <FormRow label="8. ราคารวม" hint="คำนวณอัตโนมัติ (จำนวน × ราคา/หน่วย) และแก้ไขเองได้">
+            <FormRow label="8. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
               <input type="number" min="0" step="any" value={form.total} onChange={set('total')} className={inputClass()} />
             </FormRow>
             <FormRow label="9. SO / LOT">

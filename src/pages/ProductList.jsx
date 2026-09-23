@@ -157,7 +157,7 @@ export default function ProductList() {
             className={inputClass('pl-9')}
           />
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:justify-end [&>button]:whitespace-nowrap max-sm:[&>button]:px-2 max-sm:[&>button]:text-xs">
           <input
             ref={fileInputRef}
             type="file"
@@ -429,14 +429,15 @@ function ImportPreviewModal({ pending, plan, replaceAll, onReplaceAllChange, onC
                 <tr key={`u-${c.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
                   <td className="px-3 py-2 text-sky-300">อัปเดต</td>
                   <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{c.code}</td>
-                  <td className="!whitespace-normal px-3 py-2">
-                    {Object.entries(c.updates).map(([field, value]) => (
-                      <div key={field}>
+                  <td className="px-3 py-2">
+                    {Object.entries(c.updates).map(([field, value], i) => (
+                      <span key={field}>
+                        {i > 0 && <span className="mx-2 text-[var(--text-faint)]">·</span>}
                         {FIELD_LABELS[field]}:{' '}
                         <span className="text-[var(--text-faint)] line-through">{formatField(field, c.before[field])}</span>
                         {' → '}
                         <span className="font-semibold">{formatField(field, value)}</span>
-                      </div>
+                      </span>
                     ))}
                   </td>
                 </tr>
@@ -446,7 +447,7 @@ function ImportPreviewModal({ pending, plan, replaceAll, onReplaceAllChange, onC
                     {c.kind === 'added' ? 'เพิ่มใหม่' : 'ลบ'}
                   </td>
                   <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{c.code}</td>
-                  <td className="!whitespace-normal px-3 py-2">{c.name}</td>
+                  <td className="px-3 py-2">{c.name}</td>
                 </tr>
               ),
             )}
