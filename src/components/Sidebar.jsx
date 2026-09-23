@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Boxes,
   Home,
   Package,
   PackagePlus,
@@ -14,11 +13,12 @@ import {
   X,
 } from 'lucide-react'
 import SettingsModal from './SettingsModal'
+import SealLogo from './SealLogo'
 import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home', icon: Home, end: true },
-  { to: '/products', label: 'Item Card', icon: Package },
+  { to: '/products', label: 'PRODUCT LIST', icon: Package },
   { to: '/stock-in', label: 'Stock In', icon: PackagePlus },
   { to: '/stock-out', label: 'Stock Out', icon: PackageMinus },
   { to: '/stock', label: 'Stock', icon: BarChart3 },
@@ -53,9 +53,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
         }`}
       >
         <div className="flex items-center gap-3 border-b border-[var(--border-color)] px-5 py-5">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-600">
-            <Boxes size={20} className="text-white" />
-          </div>
+          <SealLogo size={40} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-[var(--text-primary)]">Inventory System</div>
             <div className="truncate text-[10px] font-medium tracking-wide text-[var(--text-faint)]">

@@ -1,9 +1,13 @@
 import { useState } from 'react'
-import { Menu } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function SidebarLayout({ title, children }) {
+// `heading` replaces the plain title (e.g. PRODUCT LIST + รายการสินค้า), `subtitle` sits
+// under it, and `backTo` adds the round back button shown in the spec.
+export default function SidebarLayout({ title, heading, subtitle, backTo, children }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const navigate = useNavigate()
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-page)]">
@@ -22,7 +26,23 @@ export default function SidebarLayout({ title, children }) {
         </div>
 
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
-          <h1 className="mb-6 hidden text-2xl font-bold text-[var(--text-primary)] md:block">{title}</h1>
+          <div className="mb-6 flex items-start gap-3">
+            {backTo && (
+              <button
+                onClick={() => navigate(backTo)}
+                aria-label="ย้อนกลับ"
+                className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+              >
+                <ArrowLeft size={17} />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h1 className={`text-2xl font-bold text-[var(--text-primary)] ${heading ? '' : 'hidden md:block'}`}>
+                {heading ?? title}
+              </h1>
+              {subtitle && <div className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</div>}
+            </div>
+          </div>
           {children}
         </div>
       </div>

@@ -1,15 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, Search, Upload, Download, FileSpreadsheet } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Upload, Download, QrCode } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import Modal from '../components/Modal'
+import ProductQrModal from '../components/ProductQrModal'
 import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
 import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
 import { exportAoaToExcel } from '../utils/export'
-import { parseProductWorkbook, planProductImport, buildProductTemplateAoa, buildProductExportAoa } from '../utils/productImport'
+import { parseProductWorkbook, planProductImport, buildProductExportAoa } from '../utils/productImport'
 
-const emptyForm = { code: '', name: '', unit: '', unitPrice: '', openingQty: '1' }
+const emptyForm = { code: '', name: '', unit: 'EA', unitPrice: '', openingQty: '1' }
 
 export default function ProductList() {
   const products = useStore((s) => s.products)
@@ -25,6 +26,7 @@ export default function ProductList() {
   const [importSummary, setImportSummary] = useState(null)
   const [pendingImport, setPendingImport] = useState(null) // { fileName, rows, fields, duplicates }
   const [replaceAll, setReplaceAll] = useState(false)
+  const [qrProduct, setQrProduct] = useState(null)
   const fileInputRef = useRef(null)
 
   const filtered = useMemo(() => {
@@ -78,10 +80,6 @@ export default function ProductList() {
   function handleExportExcel() {
     const sorted = [...products].sort((a, b) => thaiCompare(a.code, b.code))
     exportAoaToExcel(buildProductExportAoa(sorted), 'product-list.xlsx', 'Products')
-  }
-
-  function handleDownloadTemplate() {
-    exportAoaToExcel(buildProductTemplateAoa(), 'product-import-template.xlsx', 'Template')
   }
 
   function handleImportClick() {
@@ -139,14 +137,23 @@ export default function ProductList() {
   }
 
   return (
-    <SidebarLayout title="รายการสินค้า (Product List)">
+    <SidebarLayout
+      title="PRODUCT LIST"
+      backTo="/"
+      heading={
+        <span className="flex flex-col leading-tight">
+          <span className="text-3xl font-extrabold tracking-wide">PRODUCT LIST</span>
+          <span className="text-base font-semibold text-[var(--text-secondary)]">รายการสินค้า</span>
+        </span>
+      }
+    >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
+        <div className="relative w-full sm:max-w-md sm:flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหารหัส / ชื่อสินค้า"
+            placeholder="Search by SKU or product name..."
             className={inputClass('pl-9')}
           />
         </div>
@@ -159,28 +166,23 @@ export default function ProductList() {
             onChange={handleImportFile}
           />
           <button
-            onClick={handleDownloadTemplate}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-3.5 py-2.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+            onClick={openCreate}
+            className="flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-400"
           >
-            <FileSpreadsheet size={14} /> ดาวน์โหลดเทมเพลต
+            <Plus size={16} /> Add product
           </button>
           <button
             onClick={handleImportClick}
-            className="flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+            title="นำเข้า / อัปเดตรหัสสินค้าจากไฟล์ Excel (หัวคอลัมน์เหมือนไฟล์ Export Excel)"
+            className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
           >
-            <Upload size={14} /> นำเข้า / อัปเดตรหัสสินค้า (Excel)
+            <Upload size={16} /> Import Excel
           </button>
           <button
             onClick={handleExportExcel}
-            className="flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3.5 py-2.5 text-xs font-semibold text-sky-300 transition hover:bg-sky-500/20"
+            className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-hover-strong)]"
           >
-            <Download size={14} /> ส่งออก Excel
-          </button>
-          <button
-            onClick={openCreate}
-            className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-blue-500"
-          >
-            <Plus size={16} /> เพิ่มสินค้า
+            <Download size={16} /> Export Excel
           </button>
         </div>
       </div>
@@ -205,8 +207,8 @@ export default function ProductList() {
               <th className="px-4 py-3 font-medium">ชื่อสินค้า</th>
               <th className="px-4 py-3 text-right font-medium">จำนวน</th>
               <th className="px-4 py-3 font-medium">หน่วย</th>
-              <th className="px-4 py-3 text-right font-medium">ราคา/หน่วยละ</th>
-              <th className="px-4 py-3 text-center font-medium">จัดการ</th>
+              <th className="px-4 py-3 text-right font-medium">ราคาหน่วยละ</th>
+              <th className="px-4 py-3 text-center font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -220,13 +222,22 @@ export default function ProductList() {
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-2">
                     <button
+                      onClick={() => setQrProduct(p)}
+                      title="QR Code"
+                      className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+                    >
+                      <QrCode size={15} />
+                    </button>
+                    <button
                       onClick={() => openEdit(p)}
+                      title="แก้ไข"
                       className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
                     >
                       <Pencil size={15} />
                     </button>
                     <button
                       onClick={() => handleDelete(p.code)}
+                      title="ลบ"
                       className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-red-500/15 hover:text-red-400"
                     >
                       <Trash2 size={15} />
@@ -252,6 +263,8 @@ export default function ProductList() {
         onMore={page.showMore}
       />
 
+      <ProductQrModal product={qrProduct} onClose={() => setQrProduct(null)} />
+
       <ImportPreviewModal
         pending={pendingImport}
         plan={importPlan}
@@ -261,12 +274,13 @@ export default function ProductList() {
         onConfirm={handleConfirmImport}
       />
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingCode ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingCode ? 'Edit product' : 'Add product'}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="รหัสสินค้า" required>
             <input
               value={form.code}
               disabled={!!editingCode}
+              placeholder="e.g. STS-E045"
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
               className={inputClass(editingCode ? 'opacity-50' : '')}
             />
@@ -278,7 +292,7 @@ export default function ProductList() {
               className={inputClass()}
             />
           </FormField>
-          <FormField label="จำนวน">
+          <FormField label="จำนวน" hint="1 หน่วย (ราคาต่อ 1 ตัว)">
             <input
               type="number"
               value={form.openingQty}
@@ -293,7 +307,7 @@ export default function ProductList() {
               className={inputClass()}
             />
           </FormField>
-          <FormField label="ราคา/หน่วยละ" hint="ราคาต้นทุนไม่รวม VAT">
+          <FormField label="ราคาหน่วยละ" hint="ราคาต้นทุนไม่รวม VAT">
             <input
               type="number"
               value={form.unitPrice}
@@ -307,13 +321,13 @@ export default function ProductList() {
             onClick={() => setModalOpen(false)}
             className="rounded-lg border border-[var(--border-color)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
           >
-            ยกเลิก
+            Cancel
           </button>
           <button
             onClick={handleSave}
             className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-blue-500"
           >
-            บันทึก
+            Save
           </button>
         </div>
       </Modal>
@@ -327,7 +341,7 @@ const FIELD_LABELS = {
   code: 'รหัสสินค้า',
   name: 'ชื่อสินค้า',
   unit: 'หน่วย',
-  unitPrice: 'ราคา/หน่วยละ',
+  unitPrice: 'ราคาหน่วยละ',
   openingQty: 'จำนวน',
 }
 

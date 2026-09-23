@@ -14,9 +14,20 @@ export function exportAoaToExcel(aoa, filename, sheetName = 'Sheet1') {
 
 export async function exportElementToPdf(element, filename, { orientation = 'landscape' } = {}) {
   if (!element) return
+  // Wide report tables scroll sideways on screen; un-clip them in the capture so the PDF
+  // gets every column instead of just the visible part.
+  const fullWidth = Math.max(element.scrollWidth, ...[...element.querySelectorAll('table')].map((t) => t.scrollWidth + 48))
   const canvas = await html2canvas(element, {
     backgroundColor: '#0B0F19',
     scale: 2,
+    width: fullWidth,
+    windowWidth: fullWidth + 400,
+    onclone: (doc, clone) => {
+      clone.style.width = `${fullWidth}px`
+      clone.querySelectorAll('.overflow-x-auto, .overflow-auto').forEach((el) => {
+        el.style.overflow = 'visible'
+      })
+    },
   })
   const imgData = canvas.toDataURL('image/png')
   const pdf = new jsPDF({ orientation, unit: 'pt', format: 'a4' })

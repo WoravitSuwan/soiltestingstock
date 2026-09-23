@@ -51,18 +51,19 @@ function inRange(dateStr, fromSortable, toSortable) {
   return true
 }
 
-// Current on-hand balance for a product: opening + all stock-in - all stock-out.
+// Current on-hand balance for a product: all stock-in minus all stock-out.
+// Stock comes only from Stock In / Stock Out rows. The product list's จำนวน is the
+// quantity its unit price refers to (always 1 unit), not stock on hand.
 export function currentBalance(product, stockIns, stockOuts) {
   const inSum = sumStockIn(stockIns, product.code)
   const outSum = sumStockOut(stockOuts, product.code)
-  const qty = (Number(product.openingQty) || 0) + inSum.qty - outSum.qty
-  const openingValue = (Number(product.openingQty) || 0) * (Number(product.unitPrice) || 0)
-  const value = openingValue + inSum.value - outSum.value
-  return { qty, value }
+  return { qty: inSum.qty - outSum.qty, value: inSum.value - outSum.value }
 }
 
 // Builds the chronological ledger rows for a single product (Report 1).
-export function buildItemLedger(product, stockIns, stockOuts) {
+// With a date range, movements before `fromSortable` roll up into the ยอดยกมา (opening)
+// balance and only movements inside the range are listed.
+export function buildItemLedger(product, stockIns, stockOuts, { fromSortable, toSortable } = {}) {
   const rows = []
   stockIns
     .filter((t) => t.productCode === product.code)
@@ -100,10 +101,22 @@ export function buildItemLedger(product, stockIns, stockOuts) {
 
   rows.sort((a, b) => a.sortable - b.sortable)
 
-  let balQty = Number(product.openingQty) || 0
-  let balValue = balQty * (Number(product.unitPrice) || 0)
+  const opening = { qty: 0, value: 0 }
+  const inRangeRows = []
+  rows.forEach((r) => {
+    if (fromSortable != null && r.sortable < fromSortable) {
+      const sign = r.kind === 'in' ? 1 : -1
+      opening.qty += sign * r.qty
+      opening.value += sign * r.value
+    } else if (toSortable == null || r.sortable <= toSortable) {
+      inRangeRows.push(r)
+    }
+  })
 
-  const ledger = rows.map((r) => {
+  let balQty = opening.qty
+  let balValue = opening.value
+
+  const ledger = inRangeRows.map((r) => {
     if (r.kind === 'in') {
       balQty += r.qty
       balValue += r.value
@@ -119,15 +132,15 @@ export function buildItemLedger(product, stockIns, stockOuts) {
     }
   })
 
-  const totalIn = rows
+  const totalIn = inRangeRows
     .filter((r) => r.kind === 'in')
     .reduce((acc, r) => ({ qty: acc.qty + r.qty, value: acc.value + r.value }), { qty: 0, value: 0 })
-  const totalOut = rows
+  const totalOut = inRangeRows
     .filter((r) => r.kind === 'out')
     .reduce((acc, r) => ({ qty: acc.qty + r.qty, value: acc.value + r.value }), { qty: 0, value: 0 })
 
   return {
-    opening: { qty: Number(product.openingQty) || 0, value: (Number(product.openingQty) || 0) * (Number(product.unitPrice) || 0) },
+    opening,
     rows: ledger,
     closing: { qty: balQty, value: balValue },
     totalIn,
@@ -146,9 +159,9 @@ export function buildAllStockSummary(products, allStockIns, allStockOuts, fromSo
       in: sumStockIn(stockIns, p.code, { toSortable: fromSortable != null ? fromSortable - 1 : undefined }),
       out: sumStockOut(stockOuts, p.code, { toSortable: fromSortable != null ? fromSortable - 1 : undefined }),
     }
-    const openingQty = (Number(p.openingQty) || 0) + before.in.qty - before.out.qty
-    const openingValue =
-      (Number(p.openingQty) || 0) * (Number(p.unitPrice) || 0) + before.in.value - before.out.value
+    // ยอดยกมา = stock carried over from movements before the start date (e.g. earlier years)
+    const openingQty = before.in.qty - before.out.qty
+    const openingValue = before.in.value - before.out.value
 
     const inRangeSum = sumStockIn(stockIns, p.code, { fromSortable, toSortable })
     const outRangeSum = sumStockOut(stockOuts, p.code, { fromSortable, toSortable })
