@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, Search, Upload, Download, FileSpreadsheet } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import Modal from '../components/Modal'
+import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
 import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
@@ -22,7 +23,7 @@ export default function ProductList() {
   const [editingCode, setEditingCode] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [importSummary, setImportSummary] = useState(null)
-  const [pendingImport, setPendingImport] = useState(null) // { fileName, rows, fields }
+  const [pendingImport, setPendingImport] = useState(null) // { fileName, rows, fields, duplicates }
   const [replaceAll, setReplaceAll] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -35,6 +36,7 @@ export default function ProductList() {
       : products
     return [...list].sort((a, b) => thaiCompare(a.code, b.code))
   }, [products, query])
+  const page = useShowMore(filtered, 100, query)
 
   function openCreate() {
     setEditingCode(null)
@@ -60,7 +62,7 @@ export default function ProductList() {
     if (editingCode) {
       updateProduct(editingCode, payload)
     } else {
-      if (products.some((p) => p.code.toLowerCase() === payload.code.toLowerCase())) {
+      if (products.some((p) => p.code === payload.code)) {
         alert('รหัสสินค้านี้มีอยู่แล้ว')
         return
       }
@@ -93,7 +95,7 @@ export default function ProductList() {
     const reader = new FileReader()
     reader.onload = (evt) => {
       try {
-        const { rows, fields } = parseProductWorkbook(evt.target.result)
+        const { rows, fields, duplicates } = parseProductWorkbook(evt.target.result)
         if (rows.length === 0) {
           setImportSummary({
             type: 'error',
@@ -103,7 +105,7 @@ export default function ProductList() {
         }
         setImportSummary(null)
         setReplaceAll(false)
-        setPendingImport({ fileName: file.name, rows, fields })
+        setPendingImport({ fileName: file.name, rows, fields, duplicates })
       } catch {
         setImportSummary({ type: 'error', message: 'ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์' })
       }
@@ -208,7 +210,7 @@ export default function ProductList() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => (
+            {page.visible.map((p) => (
               <tr key={p.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                 <td className="px-4 py-3 font-mono text-[var(--text-accent)]">{p.code}</td>
                 <td className="px-4 py-3">{p.name}</td>
@@ -243,6 +245,12 @@ export default function ProductList() {
           </tbody>
         </table>
       </div>
+      <ShowMoreButton
+        shown={page.visible.length}
+        total={filtered.length}
+        remaining={page.remaining}
+        onMore={page.showMore}
+      />
 
       <ImportPreviewModal
         pending={pendingImport}
@@ -313,6 +321,8 @@ export default function ProductList() {
   )
 }
 
+const PREVIEW_LIMIT = 200
+
 const FIELD_LABELS = {
   code: 'รหัสสินค้า',
   name: 'ชื่อสินค้า',
@@ -331,6 +341,13 @@ function ImportPreviewModal({ pending, plan, replaceAll, onReplaceAllChange, onC
   if (!pending || !plan) return null
   const missingFields = Object.keys(FIELD_LABELS).filter((f) => !pending.fields.includes(f))
   const nothingToDo = plan.added.length + plan.updated.length + plan.removed.length === 0
+  // listing all ~10k rows of a first import would freeze the dialog
+  const changes = [
+    ...plan.updated.map((u) => ({ kind: 'updated', ...u })),
+    ...plan.removed.map((p) => ({ kind: 'removed', code: p.code, name: p.name })),
+    ...plan.added.map((p) => ({ kind: 'added', code: p.code, name: p.name })),
+  ]
+  const shownChanges = changes.slice(0, PREVIEW_LIMIT)
 
   const stats = [
     { label: 'เพิ่มใหม่', value: plan.added.length, color: 'text-emerald-300' },
@@ -360,9 +377,26 @@ function ImportPreviewModal({ pending, plan, replaceAll, onReplaceAllChange, onC
         ))}
       </div>
 
+      {pending.duplicates.length > 0 && (
+        <div className="mb-4 rounded-lg bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300">
+          <div className="mb-1 font-semibold">
+            พบรหัสสินค้าซ้ำในไฟล์ {pending.duplicates.length} รหัส — ระบบจะใช้แถวล่างสุดของแต่ละรหัส
+            (ถ้าเป็นสินค้าคนละตัว กรุณาแก้รหัสในไฟล์ให้ไม่ซ้ำแล้วนำเข้าใหม่)
+          </div>
+          <div className="max-h-24 overflow-y-auto">
+            {pending.duplicates.map((d) => (
+              <div key={d.code}>
+                <span className="font-mono">{d.code}</span> — แถว {d.rows.join(', ')}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {plan.skipped.length > 0 && (
         <div className="mb-4 rounded-lg bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300">
-          ข้าม {plan.skipped.length} รายการ เพราะเป็นรหัสใหม่แต่ไม่มีชื่อสินค้า: {plan.skipped.map((r) => r.code).join(', ')}
+          ข้าม {plan.skipped.length} รายการ เพราะเป็นรหัสใหม่แต่ไม่มีชื่อสินค้า: {plan.skipped.slice(0, 50).map((r) => r.code).join(', ')}
+          {plan.skipped.length > 50 && ' …'}
         </div>
       )}
 
@@ -376,36 +410,39 @@ function ImportPreviewModal({ pending, plan, replaceAll, onReplaceAllChange, onC
             </tr>
           </thead>
           <tbody>
-            {plan.added.map((p) => (
-              <tr key={`a-${p.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
-                <td className="px-3 py-2 text-emerald-300">เพิ่มใหม่</td>
-                <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{p.code}</td>
-                <td className="!whitespace-normal px-3 py-2">{p.name}</td>
-              </tr>
-            ))}
-            {plan.updated.map((u) => (
-              <tr key={`u-${u.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
-                <td className="px-3 py-2 text-sky-300">อัปเดต</td>
-                <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{u.code}</td>
-                <td className="!whitespace-normal px-3 py-2">
-                  {Object.entries(u.updates).map(([field, value]) => (
-                    <div key={field}>
-                      {FIELD_LABELS[field]}:{' '}
-                      <span className="text-[var(--text-faint)] line-through">{formatField(field, u.before[field])}</span>
-                      {' → '}
-                      <span className="font-semibold">{formatField(field, value)}</span>
-                    </div>
-                  ))}
+            {shownChanges.map((c) =>
+              c.kind === 'updated' ? (
+                <tr key={`u-${c.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
+                  <td className="px-3 py-2 text-sky-300">อัปเดต</td>
+                  <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{c.code}</td>
+                  <td className="!whitespace-normal px-3 py-2">
+                    {Object.entries(c.updates).map(([field, value]) => (
+                      <div key={field}>
+                        {FIELD_LABELS[field]}:{' '}
+                        <span className="text-[var(--text-faint)] line-through">{formatField(field, c.before[field])}</span>
+                        {' → '}
+                        <span className="font-semibold">{formatField(field, value)}</span>
+                      </div>
+                    ))}
+                  </td>
+                </tr>
+              ) : (
+                <tr key={`${c.kind}-${c.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
+                  <td className={`px-3 py-2 ${c.kind === 'added' ? 'text-emerald-300' : 'text-red-400'}`}>
+                    {c.kind === 'added' ? 'เพิ่มใหม่' : 'ลบ'}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{c.code}</td>
+                  <td className="!whitespace-normal px-3 py-2">{c.name}</td>
+                </tr>
+              ),
+            )}
+            {changes.length > PREVIEW_LIMIT && (
+              <tr className="border-t border-[var(--border-color-soft)]">
+                <td colSpan={3} className="px-3 py-2 text-center text-[var(--text-faint)]">
+                  … และอีก {formatNumber(changes.length - PREVIEW_LIMIT)} รายการ
                 </td>
               </tr>
-            ))}
-            {plan.removed.map((p) => (
-              <tr key={`r-${p.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
-                <td className="px-3 py-2 text-red-400">ลบ</td>
-                <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{p.code}</td>
-                <td className="!whitespace-normal px-3 py-2">{p.name}</td>
-              </tr>
-            ))}
+            )}
             {nothingToDo && (
               <tr>
                 <td colSpan={3} className="px-3 py-6 text-center text-[var(--text-faint)]">

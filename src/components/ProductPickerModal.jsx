@@ -5,6 +5,8 @@ import { inputClass } from './FormField'
 import { useStore } from '../store/useStore'
 import { thaiCompare } from '../utils/format'
 
+const PICKER_LIMIT = 100
+
 export default function ProductPickerModal({ open, onClose, onPick }) {
   const products = useStore((s) => s.products)
   const [query, setQuery] = useState('')
@@ -18,6 +20,8 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
       : products
     return [...list].sort((a, b) => thaiCompare(a.code, b.code))
   }, [products, query, isWildcard])
+
+  const shown = filtered.slice(0, PICKER_LIMIT)
 
   function pickAll() {
     onPick('ALL')
@@ -50,7 +54,7 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
 
       {!isWildcard && (
         <div className="max-h-80 overflow-y-auto rounded-lg border border-[var(--border-color)]">
-          {filtered.map((p) => (
+          {shown.map((p) => (
             <button
               key={p.code}
               onClick={() => {
@@ -66,6 +70,11 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
               <div className="text-xs text-[var(--text-muted)]">{p.unit}</div>
             </button>
           ))}
+          {filtered.length > PICKER_LIMIT && (
+            <div className="px-4 py-3 text-center text-xs text-[var(--text-faint)]">
+              แสดง {PICKER_LIMIT} จาก {filtered.length.toLocaleString('th-TH')} รายการ — พิมพ์รหัสหรือชื่อเพื่อค้นหาให้แคบลง
+            </div>
+          )}
           {filtered.length === 0 && <div className="px-4 py-8 text-center text-sm text-[var(--text-faint)]">ไม่พบสินค้า</div>}
         </div>
       )}

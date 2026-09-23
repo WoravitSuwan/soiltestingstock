@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ListFilter, Truck, Bookmark, BadgeCheck } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import FormField, { inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
+import TransactionSearchModal from '../components/TransactionSearchModal'
 import ProductCodeField from '../components/ProductCodeField'
 import { useStore } from '../store/useStore'
 import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
@@ -29,19 +30,17 @@ export default function StockOut() {
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const [returnToRecords, setReturnToRecords] = useState(false)
-  const navigate = useNavigate()
+  const [searchOpen, setSearchOpen] = useState(false)
 
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (editId) {
       const row = stockOuts.find((t) => t.id === editId)
       if (row) handleEdit(row)
-      setReturnToRecords(searchParams.get('from') === 'records')
       setSearchParams({}, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [searchParams])
 
   const isReservation = !!form.so.trim() && !form.invoice.trim()
 
@@ -60,7 +59,6 @@ export default function StockOut() {
   function resetForm() {
     setForm(emptyForm)
     setEditingId(null)
-    if (returnToRecords) navigate('/records?type=out')
   }
 
   function handleSubmit(e) {
@@ -105,7 +103,7 @@ export default function StockOut() {
       <div className="mb-4 flex justify-end">
         <button
           type="button"
-          onClick={() => navigate('/records?type=out')}
+          onClick={() => setSearchOpen(true)}
           className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
         >
           <ListFilter size={16} /> ค้นหา / แก้ไข / ลบ รายการที่บันทึกแล้ว
@@ -214,6 +212,8 @@ export default function StockOut() {
           </button>
         </div>
       </form>
+
+      <TransactionSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} initialType="out" />
     </SidebarLayout>
   )
 }

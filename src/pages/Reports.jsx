@@ -3,8 +3,9 @@ import { FileSpreadsheet, FileDown, PackageSearch, CalendarRange, ClipboardList,
 import SidebarLayout from '../components/SidebarLayout'
 import ProductPickerModal from '../components/ProductPickerModal'
 import DateTextInput from '../components/DateTextInput'
+import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import { useStore } from '../store/useStore'
-import { buildItemLedger, buildAllStockSummary } from '../utils/stockCalc'
+import { buildItemLedger, buildAllStockSummary, groupByCode } from '../utils/stockCalc'
 import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber, thaiCompare } from '../utils/format'
 import { exportAoaToExcel, exportElementToPdf } from '../utils/export'
@@ -74,6 +75,7 @@ function ItemLedgerReport() {
   const stockOuts = useStore((s) => s.stockOuts)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [selected, setSelected] = useState(null) // null | 'ALL' | product
+  const [includeIdle, setIncludeIdle] = useState(false) // ALL view: also list products with no movement
   const printRef = useRef(null)
 
   const sortedProducts = useMemo(
@@ -86,10 +88,19 @@ function ItemLedgerReport() {
     return buildItemLedger(selected, stockIns, stockOuts)
   }, [selected, stockIns, stockOuts])
 
+  // With ~10k products, "ALL" defaults to products that actually have movements.
   const allLedgers = useMemo(() => {
     if (selected !== 'ALL') return null
-    return sortedProducts.map((p) => ({ product: p, ledger: buildItemLedger(p, stockIns, stockOuts) }))
-  }, [selected, sortedProducts, stockIns, stockOuts])
+    const insByCode = groupByCode(stockIns)
+    const outsByCode = groupByCode(stockOuts)
+    return sortedProducts
+      .filter((p) => includeIdle || insByCode.has(p.code) || outsByCode.has(p.code))
+      .map((p) => ({
+        product: p,
+        ledger: buildItemLedger(p, insByCode.get(p.code) ?? [], outsByCode.get(p.code) ?? []),
+      }))
+  }, [selected, sortedProducts, stockIns, stockOuts, includeIdle])
+  const ledgerPage = useShowMore(allLedgers ?? [], 20, `${selected === 'ALL'}-${includeIdle}`)
 
   function handleExportExcel() {
     if (!selected) return
@@ -169,14 +180,42 @@ function ItemLedgerReport() {
         </div>
       )}
 
+      {selected === 'ALL' && (
+        <div className="mb-4 flex flex-col gap-2 text-xs text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            {includeIdle
+              ? `แสดงสินค้าทุกรายการ (${formatNumber(allLedgers.length)} รายการ)`
+              : `แสดงเฉพาะสินค้าที่มีรายการรับ-จ่าย (${formatNumber(allLedgers.length)} จาก ${formatNumber(products.length)} รายการ)`}
+          </span>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={includeIdle} onChange={(e) => setIncludeIdle(e.target.checked)} />
+            รวมสินค้าที่ไม่มีการเคลื่อนไหว
+          </label>
+        </div>
+      )}
+
       {selected && (
         <div ref={printRef} className="flex flex-col gap-6">
           {selected === 'ALL'
-            ? allLedgers.map(({ product, ledger }) => (
+            ? ledgerPage.visible.map(({ product, ledger }) => (
                 <ItemLedgerTable key={product.code} product={product} ledger={ledger} />
               ))
             : singleLedger && <ItemLedgerTable product={selected} ledger={singleLedger} />}
+          {selected === 'ALL' && allLedgers.length === 0 && (
+            <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] py-16 text-center text-sm text-[var(--text-faint)]">
+              ยังไม่มีสินค้าที่มีรายการรับ-จ่าย
+            </div>
+          )}
         </div>
+      )}
+      {selected === 'ALL' && (
+        <ShowMoreButton
+          shown={ledgerPage.visible.length}
+          total={allLedgers.length}
+          remaining={ledgerPage.remaining}
+          onMore={ledgerPage.showMore}
+          step={20}
+        />
       )}
 
       <ProductPickerModal open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={setSelected} />
@@ -306,6 +345,8 @@ function AllStockSummaryReport() {
     )
   }, [products, stockIns, stockOuts, fromSortable, toSortable])
 
+  const summaryPage = useShowMore(rows, 200, `${fromSortable}-${toSortable}`)
+
   const totals = rows.reduce(
     (acc, r) => {
       acc.openingValue += r.opening.value
@@ -402,7 +443,7 @@ function AllStockSummaryReport() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {summaryPage.visible.map((r) => (
                 <tr key={r.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                   <td className="px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
                   <td className="px-2 py-2">{r.name}</td>
@@ -436,6 +477,13 @@ function AllStockSummaryReport() {
             </tfoot>
           </table>
         </div>
+        <ShowMoreButton
+          shown={summaryPage.visible.length}
+          total={rows.length}
+          remaining={summaryPage.remaining}
+          onMore={summaryPage.showMore}
+          step={200}
+        />
       </div>
     </div>
   )

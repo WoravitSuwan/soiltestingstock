@@ -6,7 +6,6 @@ import StockOut from './pages/StockOut'
 import Stock from './pages/Stock'
 import Reports from './pages/Reports'
 import ProductList from './pages/ProductList'
-import Transactions from './pages/Transactions'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useThemeStore } from './store/useThemeStore'
@@ -42,14 +41,6 @@ export default function App() {
         element={
           <ProtectedRoute>
             <StockOut />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/records"
-        element={
-          <ProtectedRoute>
-            <Transactions />
           </ProtectedRoute>
         }
       />

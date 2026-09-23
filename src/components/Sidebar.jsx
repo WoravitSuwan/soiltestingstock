@@ -8,7 +8,6 @@ import {
   PackageMinus,
   BarChart3,
   ClipboardList,
-  FileSearch,
   Settings,
   LogOut,
   ShieldCheck,
@@ -22,7 +21,6 @@ const NAV_ITEMS = [
   { to: '/products', label: 'Item Card', icon: Package },
   { to: '/stock-in', label: 'Stock In', icon: PackagePlus },
   { to: '/stock-out', label: 'Stock Out', icon: PackageMinus },
-  { to: '/records', label: 'In/Out Records', icon: FileSearch },
   { to: '/stock', label: 'Stock', icon: BarChart3 },
   { to: '/reports', label: 'Reports', icon: ClipboardList },
 ]
