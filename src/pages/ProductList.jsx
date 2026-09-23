@@ -6,7 +6,7 @@ import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
 import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
 import { exportAoaToExcel } from '../utils/export'
-import { parseProductWorkbook, buildProductTemplateAoa, buildProductExportAoa } from '../utils/productImport'
+import { parseProductWorkbook, planProductImport, buildProductTemplateAoa, buildProductExportAoa } from '../utils/productImport'
 
 const emptyForm = { code: '', name: '', unit: '', unitPrice: '', openingQty: '1' }
 
@@ -15,12 +15,15 @@ export default function ProductList() {
   const addProduct = useStore((s) => s.addProduct)
   const updateProduct = useStore((s) => s.updateProduct)
   const deleteProduct = useStore((s) => s.deleteProduct)
+  const applyProductImport = useStore((s) => s.applyProductImport)
 
   const [query, setQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingCode, setEditingCode] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [importSummary, setImportSummary] = useState(null)
+  const [pendingImport, setPendingImport] = useState(null) // { fileName, rows, fields }
+  const [replaceAll, setReplaceAll] = useState(false)
   const fileInputRef = useRef(null)
 
   const filtered = useMemo(() => {
@@ -90,35 +93,47 @@ export default function ProductList() {
     const reader = new FileReader()
     reader.onload = (evt) => {
       try {
-        const rows = parseProductWorkbook(evt.target.result)
+        const { rows, fields } = parseProductWorkbook(evt.target.result)
         if (rows.length === 0) {
-          setImportSummary({ type: 'error', message: 'ไม่พบข้อมูลสินค้าที่ถูกต้องในไฟล์ที่อัปโหลด' })
+          setImportSummary({
+            type: 'error',
+            message: 'ไม่พบข้อมูลสินค้าในไฟล์ — ต้องมีหัวคอลัมน์ "รหัสสินค้า" (ดาวน์โหลดเทมเพลตเพื่อดูรูปแบบ)',
+          })
           return
         }
-        const knownCodes = new Map(products.map((p) => [p.code.toLowerCase(), p.code]))
-        let added = 0
-        let updated = 0
-        rows.forEach((row) => {
-          const existingCode = knownCodes.get(row.code.toLowerCase())
-          if (existingCode) {
-            updateProduct(existingCode, row)
-            updated += 1
-          } else {
-            addProduct(row)
-            knownCodes.set(row.code.toLowerCase(), row.code)
-            added += 1
-          }
-        })
-        setImportSummary({
-          type: 'success',
-          message: `นำเข้าสำเร็จ: เพิ่มใหม่ ${added} รายการ, อัปเดต ${updated} รายการ`,
-        })
+        setImportSummary(null)
+        setReplaceAll(false)
+        setPendingImport({ fileName: file.name, rows, fields })
       } catch {
         setImportSummary({ type: 'error', message: 'ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์' })
       }
     }
     reader.readAsArrayBuffer(file)
     e.target.value = ''
+  }
+
+  const importPlan = useMemo(
+    () => (pendingImport ? planProductImport(products, pendingImport.rows, { replaceAll }) : null),
+    [pendingImport, products, replaceAll],
+  )
+
+  function handleConfirmImport() {
+    if (!importPlan) return
+    if (
+      importPlan.removed.length > 0 &&
+      !confirm(`ยืนยันลบสินค้า ${importPlan.removed.length} รายการที่ไม่มีในไฟล์ออกจากระบบ?`)
+    )
+      return
+    applyProductImport(importPlan)
+    const parts = [
+      `เพิ่มใหม่ ${importPlan.added.length}`,
+      `อัปเดตเป็นข้อมูลใหม่ ${importPlan.updated.length}`,
+      `ไม่เปลี่ยนแปลง ${importPlan.unchanged.length}`,
+    ]
+    if (importPlan.removed.length) parts.push(`ลบ ${importPlan.removed.length}`)
+    if (importPlan.skipped.length) parts.push(`ข้าม ${importPlan.skipped.length} (สินค้าใหม่ที่ไม่มีชื่อ)`)
+    setImportSummary({ type: 'success', message: `นำเข้าสำเร็จ: ${parts.join(', ')} รายการ` })
+    setPendingImport(null)
   }
 
   return (
@@ -151,7 +166,7 @@ export default function ProductList() {
             onClick={handleImportClick}
             className="flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
           >
-            <Upload size={14} /> นำเข้า Excel
+            <Upload size={14} /> นำเข้า / อัปเดตรหัสสินค้า (Excel)
           </button>
           <button
             onClick={handleExportExcel}
@@ -229,6 +244,15 @@ export default function ProductList() {
         </table>
       </div>
 
+      <ImportPreviewModal
+        pending={pendingImport}
+        plan={importPlan}
+        replaceAll={replaceAll}
+        onReplaceAllChange={setReplaceAll}
+        onCancel={() => setPendingImport(null)}
+        onConfirm={handleConfirmImport}
+      />
+
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingCode ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="รหัสสินค้า" required>
@@ -286,5 +310,143 @@ export default function ProductList() {
         </div>
       </Modal>
     </SidebarLayout>
+  )
+}
+
+const FIELD_LABELS = {
+  code: 'รหัสสินค้า',
+  name: 'ชื่อสินค้า',
+  unit: 'หน่วย',
+  unitPrice: 'ราคา/หน่วยละ',
+  openingQty: 'จำนวน',
+}
+
+function formatField(field, value) {
+  if (field === 'unitPrice') return formatMoney(value)
+  if (field === 'openingQty') return formatNumber(value)
+  return value || '-'
+}
+
+function ImportPreviewModal({ pending, plan, replaceAll, onReplaceAllChange, onCancel, onConfirm }) {
+  if (!pending || !plan) return null
+  const missingFields = Object.keys(FIELD_LABELS).filter((f) => !pending.fields.includes(f))
+  const nothingToDo = plan.added.length + plan.updated.length + plan.removed.length === 0
+
+  const stats = [
+    { label: 'เพิ่มใหม่', value: plan.added.length, color: 'text-emerald-300' },
+    { label: 'อัปเดตเป็นข้อมูลใหม่', value: plan.updated.length, color: 'text-sky-300' },
+    { label: 'ไม่เปลี่ยนแปลง', value: plan.unchanged.length, color: 'text-[var(--text-muted)]' },
+    { label: 'จะถูกลบ', value: plan.removed.length, color: 'text-red-400' },
+  ]
+
+  return (
+    <Modal open onClose={onCancel} title="ตรวจสอบก่อนนำเข้ารายการสินค้า" wide>
+      <div className="mb-4 text-sm text-[var(--text-secondary)]">
+        ไฟล์: <span className="font-semibold text-[var(--text-primary)]">{pending.fileName}</span> — พบ{' '}
+        {formatNumber(pending.rows.length)} รหัสสินค้า
+        {missingFields.length > 0 && (
+          <div className="mt-1 text-xs text-[var(--text-muted)]">
+            ไม่มีคอลัมน์ {missingFields.map((f) => FIELD_LABELS[f]).join(', ')} ในไฟล์ — ข้อมูลส่วนนี้ของสินค้าเดิมจะไม่ถูกแก้ไข
+          </div>
+        )}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map((st) => (
+          <div key={st.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] p-3">
+            <div className={`text-xs font-medium ${st.color}`}>{st.label}</div>
+            <div className="text-xl font-bold text-[var(--text-primary)]">{formatNumber(st.value)}</div>
+          </div>
+        ))}
+      </div>
+
+      {plan.skipped.length > 0 && (
+        <div className="mb-4 rounded-lg bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300">
+          ข้าม {plan.skipped.length} รายการ เพราะเป็นรหัสใหม่แต่ไม่มีชื่อสินค้า: {plan.skipped.map((r) => r.code).join(', ')}
+        </div>
+      )}
+
+      <div className="mb-4 max-h-[40vh] overflow-auto rounded-lg border border-[var(--border-color)]">
+        <table className="w-full min-w-[640px] text-xs [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+          <thead>
+            <tr className="sticky top-0 bg-[var(--bg-card-alt)] text-left text-[var(--text-secondary)]">
+              <th className="px-3 py-2 font-medium">สถานะ</th>
+              <th className="px-3 py-2 font-medium">รหัสสินค้า</th>
+              <th className="px-3 py-2 font-medium">รายละเอียด</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plan.added.map((p) => (
+              <tr key={`a-${p.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
+                <td className="px-3 py-2 text-emerald-300">เพิ่มใหม่</td>
+                <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{p.code}</td>
+                <td className="!whitespace-normal px-3 py-2">{p.name}</td>
+              </tr>
+            ))}
+            {plan.updated.map((u) => (
+              <tr key={`u-${u.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
+                <td className="px-3 py-2 text-sky-300">อัปเดต</td>
+                <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{u.code}</td>
+                <td className="!whitespace-normal px-3 py-2">
+                  {Object.entries(u.updates).map(([field, value]) => (
+                    <div key={field}>
+                      {FIELD_LABELS[field]}:{' '}
+                      <span className="text-[var(--text-faint)] line-through">{formatField(field, u.before[field])}</span>
+                      {' → '}
+                      <span className="font-semibold">{formatField(field, value)}</span>
+                    </div>
+                  ))}
+                </td>
+              </tr>
+            ))}
+            {plan.removed.map((p) => (
+              <tr key={`r-${p.code}`} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
+                <td className="px-3 py-2 text-red-400">ลบ</td>
+                <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{p.code}</td>
+                <td className="!whitespace-normal px-3 py-2">{p.name}</td>
+              </tr>
+            ))}
+            {nothingToDo && (
+              <tr>
+                <td colSpan={3} className="px-3 py-6 text-center text-[var(--text-faint)]">
+                  ข้อมูลในไฟล์ตรงกับข้อมูลในระบบแล้ว ไม่มีอะไรต้องเปลี่ยน
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <label className="mb-2 flex items-start gap-2 text-sm text-[var(--text-secondary)]">
+        <input
+          type="checkbox"
+          checked={replaceAll}
+          onChange={(e) => onReplaceAllChange(e.target.checked)}
+          className="mt-1"
+        />
+        <span>
+          แทนที่รายการสินค้าทั้งหมดด้วยไฟล์นี้ (ลบสินค้าที่ไม่มีในไฟล์)
+          <span className="block text-xs text-[var(--text-faint)]">
+            ประวัติรับเข้า-จ่ายออกของสินค้าที่ถูกลบจะยังอยู่ แต่จะไม่แสดงในรายงาน
+          </span>
+        </span>
+      </label>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          onClick={onCancel}
+          className="rounded-lg border border-[var(--border-color)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+        >
+          ยกเลิก
+        </button>
+        <button
+          onClick={onConfirm}
+          disabled={nothingToDo}
+          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          ยืนยันนำเข้า
+        </button>
+      </div>
+    </Modal>
   )
 }
