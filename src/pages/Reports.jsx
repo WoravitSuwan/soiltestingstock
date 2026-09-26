@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { FileSpreadsheet, FileDown, PackageSearch, CalendarRange, ClipboardList, ArrowLeft, ArrowRight, Search } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import ProductPickerModal from '../components/ProductPickerModal'
+import ProductName from '../components/ProductName'
 import DateTextInput from '../components/DateTextInput'
 import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import { useStore } from '../store/useStore'
@@ -476,18 +477,18 @@ function AllStockSummaryReport() {
         <div className="mb-4 text-center text-sm text-[var(--text-secondary)]">
           สิ้นสุดวันที่ {fromThai} - {toThai}
         </div>
-        <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-          <table className="w-full min-w-[980px] text-xs [&_th]:whitespace-nowrap">
+        <div className="table-scroll rounded-lg border border-[var(--border-color)]">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
-                <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">รหัส</th>
+              <tr className="text-[var(--text-secondary)]">
+                <th rowSpan={2} className="sticky-col border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">รหัส</th>
                 <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">ชื่อสินค้า</th>
                 <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">ยอดยกมา - {fromThai}</th>
                 <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-emerald-300">ซื้อ</th>
                 <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-sky-300">ออก</th>
                 <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">คงเหลือ</th>
               </tr>
-              <tr className="bg-[var(--bg-surface-soft)] text-right text-[var(--text-muted)]">
+              <tr className="text-right text-[var(--text-muted)]">
                 {['จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน'].map((h, i) => (
                   <th key={i} className="px-2 py-1.5 font-medium">{h}</th>
                 ))}
@@ -496,8 +497,10 @@ function AllStockSummaryReport() {
             <tbody>
               {summaryPage.visible.map((r) => (
                 <tr key={r.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                  <td className="whitespace-nowrap px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
-                  <td className="px-2 py-2">{r.name}</td>
+                  <td className="sticky-col px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
+                  <td className="px-2 py-2">
+                    <ProductName name={r.name} />
+                  </td>
                   <td className={`${numCell} text-red-400`}>{formatNumber(r.opening.qty)}</td>
                   <td className={`${numCell} text-red-400`}>{formatMoney(r.opening.value)}</td>
                   <td className={`${numCell} text-emerald-300`}>{formatNumber(r.in.qty)}</td>

@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Search, Upload, Download, QrCode } from 'lucide-r
 import SidebarLayout from '../components/SidebarLayout'
 import Modal from '../components/Modal'
 import ProductQrModal from '../components/ProductQrModal'
+import ProductName from '../components/ProductName'
 import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
@@ -199,11 +200,11 @@ export default function ProductList() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-        <table className="w-full min-w-[720px] text-sm">
+      <div className="table-scroll rounded-xl border border-[var(--border-color)]">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
-              <th className="px-4 py-3 font-medium">รหัสสินค้า</th>
+            <tr className="text-left text-[var(--text-secondary)]">
+              <th className="sticky-col px-4 py-3 font-medium">รหัสสินค้า</th>
               <th className="px-4 py-3 font-medium">ชื่อสินค้า</th>
               <th className="px-4 py-3 text-right font-medium">จำนวน</th>
               <th className="px-4 py-3 font-medium">หน่วย</th>
@@ -214,8 +215,10 @@ export default function ProductList() {
           <tbody>
             {page.visible.map((p) => (
               <tr key={p.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                <td className="px-4 py-3 font-mono text-[var(--text-accent)]">{p.code}</td>
-                <td className="px-4 py-3">{p.name}</td>
+                <td className="sticky-col px-4 py-3 font-mono text-[var(--text-accent)]">{p.code}</td>
+                <td className="px-4 py-3">
+                  <ProductName name={p.name} />
+                </td>
                 <td className="px-4 py-3 text-right">{formatNumber(p.openingQty)}</td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">{p.unit}</td>
                 <td className="px-4 py-3 text-right">{formatMoney(p.unitPrice)}</td>

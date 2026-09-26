@@ -3,6 +3,7 @@ import { Search, AlertTriangle, ScanLine } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import { inputClass } from '../components/FormField'
 import QrScannerModal from '../components/QrScannerModal'
+import ProductName from '../components/ProductName'
 import ShowMoreButton, { useShowMore } from '../components/ShowMore'
 import { useStore } from '../store/useStore'
 import { groupByCode, sumStockIn, sumStockOut } from '../utils/stockCalc'
@@ -49,7 +50,14 @@ export default function Stock() {
 
   const page = useShowMore(rows, 100, query)
 
-  const handleScan = useCallback((text) => setQuery(text), [])
+  const handleScan = useCallback(
+    (text) => {
+      setQuery(text)
+      if (!products.some((p) => p.code.toLowerCase() === text.toLowerCase()))
+        alert(`สแกนได้รหัส "${text}" แต่ไม่พบใน PRODUCT LIST`)
+    },
+    [products],
+  )
 
   return (
     <SidebarLayout
@@ -84,11 +92,11 @@ export default function Stock() {
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-        <table className="w-full min-w-[640px] text-sm [&_th]:whitespace-nowrap [&_td:not(:nth-child(2))]:whitespace-nowrap">
+      <div className="table-scroll rounded-xl border border-[var(--border-color)]">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
-              <th className="px-4 py-3 font-medium">รหัสสินค้า</th>
+            <tr className="text-left text-[var(--text-secondary)]">
+              <th className="sticky-col px-4 py-3 font-medium">รหัสสินค้า</th>
               <th className="px-4 py-3 font-medium">ชื่อผลิตภัณฑ์</th>
               <th className="px-4 py-3 text-right font-medium">เข้า</th>
               <th className="px-4 py-3 text-right font-medium">ออก</th>
@@ -104,8 +112,10 @@ export default function Stock() {
                   r.low ? 'text-red-400' : 'text-[var(--text-primary)]'
                 }`}
               >
-                <td className={`px-4 py-3 font-mono ${r.low ? 'text-red-400' : 'text-[var(--text-accent)]'}`}>{r.code}</td>
-                <td className="px-4 py-3">{r.name}</td>
+                <td className={`sticky-col px-4 py-3 font-mono ${r.low ? 'text-red-400' : 'text-[var(--text-accent)]'}`}>{r.code}</td>
+                <td className="px-4 py-3">
+                  <ProductName name={r.name} />
+                </td>
                 <td className="px-4 py-3 text-right">{formatNumber(r.inQty)}</td>
                 <td className="px-4 py-3 text-right">{formatNumber(r.outQty)}</td>
                 <td className="px-4 py-3 text-right font-bold">{formatNumber(r.qty)}</td>

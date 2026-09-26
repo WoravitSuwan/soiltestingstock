@@ -12,15 +12,22 @@ export default function ProductCodeField({ value, onSelect, listId = 'product-co
   const products = useStore((s) => s.products)
   const [scanOpen, setScanOpen] = useState(false)
 
-  function handleChange(code) {
+  function findProduct(code) {
     const trimmed = code.trim()
-    let match = products.find((p) => p.code === trimmed)
-    if (!match) {
-      const lower = trimmed.toLowerCase()
-      const loose = products.filter((p) => p.code.toLowerCase() === lower)
-      if (loose.length === 1) match = loose[0]
-    }
-    onSelect(match ? match.code : code, match || null)
+    const exact = products.find((p) => p.code === trimmed)
+    if (exact) return exact
+    const loose = products.filter((p) => p.code.toLowerCase() === trimmed.toLowerCase())
+    return loose.length === 1 ? loose[0] : null
+  }
+
+  function handleChange(code) {
+    const match = findProduct(code)
+    onSelect(match ? match.code : code, match)
+  }
+
+  function handleScan(code) {
+    handleChange(code)
+    if (!findProduct(code)) alert(`สแกนได้รหัส "${code}" แต่ไม่พบใน PRODUCT LIST`)
   }
 
   return (
@@ -45,7 +52,7 @@ export default function ProductCodeField({ value, onSelect, listId = 'product-co
         </button>
       </div>
       <ProductDatalist id={listId} products={products} />
-      <QrScannerModal open={scanOpen} onClose={() => setScanOpen(false)} onResult={handleChange} />
+      <QrScannerModal open={scanOpen} onClose={() => setScanOpen(false)} onResult={handleScan} />
     </>
   )
 }

@@ -90,3 +90,48 @@ table th,
 table td {
   white-space: nowrap;
 }
+
+/* Long product lists: the table scrolls inside its own box so the sideways scrollbar is
+   always on screen (not below thousands of rows); the header row stays pinned while
+   scrolling down and the product-code column stays pinned while scrolling sideways. */
+.table-scroll {
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--bg-card);
+}
+.table-scroll thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.table-scroll thead tr {
+  background: var(--bg-card-alt);
+}
+.table-scroll .sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-card);
+}
+.table-scroll thead .sticky-col {
+  background: var(--bg-card-alt);
+}
+.table-scroll tfoot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--bg-card-alt);
+}
+.table-scroll tbody tr:hover .sticky-col {
+  background: var(--bg-card-hover);
+}
+@media (max-width: 639px) {
+  .table-scroll th,
+  .table-scroll td {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+  }
+  .table-scroll .sticky-col {
+    font-size: 0.75rem;
+  }
+}
