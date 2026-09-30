@@ -31,7 +31,7 @@ function mapHeaderRow(cells) {
   return columns
 }
 
-function toNumber(v) {
+export function toNumber(v) {
   if (typeof v === 'number') return v
   const n = Number(String(v ?? '').replace(/,/g, '').trim())
   return Number.isFinite(n) ? n : 0
@@ -90,7 +90,7 @@ export function parseProductWorkbook(arrayBuffer) {
   return { rows: [...byCode.values()], fields, duplicates }
 }
 
-function codeText(cell) {
+export function codeText(cell) {
   if (!cell) return ''
   if (cell.t !== 'n') return cleanText(cell.w ?? cell.v)
   const shown = String(cell.w ?? '').trim()
@@ -99,7 +99,7 @@ function codeText(cell) {
 }
 
 // Trims and collapses line breaks/tabs that sneak in from copy-pasted cells.
-function cleanText(v) {
+export function cleanText(v) {
   return String(v ?? '').replace(/[\r\n\t]+/g, ' ').trim()
 }
 

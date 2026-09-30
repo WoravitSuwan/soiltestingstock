@@ -91,3 +91,16 @@ body {
 table :where(th, td) {
   white-space: nowrap;
 }
+
+/* All-Stock Summary report: sized to match A4 landscape (297 x 210mm) both on screen and
+   when printed natively (Ctrl+P) — the EXPORT - PDF button already renders A4 landscape
+   via jsPDF, independent of this. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  .report-a4-page {
+    min-height: 0;
+  }
+}

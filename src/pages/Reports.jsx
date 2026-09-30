@@ -481,13 +481,15 @@ function AllStockSummaryReport() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-[1123px]">
       <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 lg:flex-row lg:items-start lg:justify-between">
         <DateRangeBar from={range.from} to={range.to} onApply={(from, to) => setRange({ from, to })} />
         <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} />
       </div>
 
-      <div ref={printRef} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
+      {/* Sized to A4 landscape (297 x 210mm ≈ 1123 x 794px @96dpi) so the on-screen report
+          previews the way it will print/export. */}
+      <div ref={printRef} className="report-a4-page min-h-[794px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
         <div className="text-center text-lg font-bold text-[var(--text-primary)]">สรุปยอดสินค้าคงเหลือ รวมทุกคลัง</div>
         <div className="mb-4 text-center text-sm text-[var(--text-secondary)]">
           สิ้นสุดวันที่ {fromThai} - {toThai}
