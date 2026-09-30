@@ -135,7 +135,7 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
       </div>
 
       <div className={`overflow-auto rounded-xl border border-[var(--border-color)] ${tableMaxHeight ?? ''}`}>
-        <table className="w-full min-w-[1100px] text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+        <table className="w-full min-w-[1100px] text-sm [&_td:not(:nth-child(4))]:whitespace-nowrap [&_th]:whitespace-nowrap">
           <thead>
             <tr className="sticky top-0 bg-[var(--bg-card-alt)] text-left text-[var(--text-secondary)]">
               <th className="px-3 py-3 font-medium">ประเภท</th>
@@ -167,7 +167,7 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
                 </td>
                 <td className="px-3 py-3">{toThaiDate(r.date)}</td>
                 <td className="px-3 py-3 font-mono text-[var(--text-accent)]">{r.productCode}</td>
-                <td className="px-3 py-3">{r.productName}</td>
+                <td className="max-w-[260px] whitespace-normal break-words px-3 py-3">{r.productName}</td>
                 <td className="px-3 py-3 text-[var(--text-secondary)]">{r.docNo || '-'}</td>
                 <td className="px-3 py-3 text-[var(--text-secondary)]">{r.party || '-'}</td>
                 <td className="px-3 py-3 text-right">{formatNumber(r.qty)}</td>

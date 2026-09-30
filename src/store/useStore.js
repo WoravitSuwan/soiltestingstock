@@ -30,9 +30,10 @@ export const useStore = create(
       products: seedProducts,
       stockIns: [],
       stockOuts: [],
+      importBatches: [],
 
       // Wipes products and every Stock In / Stock Out row (login accounts are untouched).
-      clearAllData: () => set({ products: [], stockIns: [], stockOuts: [] }),
+      clearAllData: () => set({ products: [], stockIns: [], stockOuts: [], importBatches: [] }),
 
       // ---------- Products ----------
       addProduct: (product) =>
@@ -117,6 +118,48 @@ export const useStore = create(
         set((state) => ({
           stockOuts: state.stockOuts.filter((t) => t.id !== id),
         })),
+
+      // ---------- Stock import (ยอดยกมา, by year) ----------
+      // Products in `newProducts` are created if their code doesn't already exist;
+      // existing products are never modified. `stockRows` are always appended as new
+      // Stock In / Stock Out rows — importing a year never overwrites or removes
+      // anything from a previously-imported year.
+      applyStockImport: ({ type, year, fileName, newProducts, stockRows }) =>
+        set((state) => {
+          const existingCodes = new Set(state.products.map((p) => p.code))
+          const products = [
+            ...state.products,
+            ...newProducts.filter((p) => !existingCodes.has(p.code)),
+          ].sort((a, b) => thaiCompare(a.code, b.code))
+
+          const key = type === 'out' ? 'stockOuts' : 'stockIns'
+          const idPrefix = type === 'out' ? 'OUT' : 'IN'
+          const newRows = stockRows.map((r) => ({
+            ...r,
+            id: genId(idPrefix),
+            source: 'import',
+            importBatchId: null, // filled in below once the batch id is known
+          }))
+          const batch = {
+            id: genId('BATCH'),
+            type,
+            year,
+            fileName,
+            rowCount: newRows.length,
+            newProductCount: newProducts.length,
+            importedAt: new Date().toISOString(),
+          }
+          newRows.forEach((r) => { r.importBatchId = batch.id })
+
+          return {
+            products,
+            [key]: [...state[key], ...newRows],
+            importBatches: [...state.importBatches, batch],
+          }
+        }),
+
+      hasImportedYear: (type, year) =>
+        get().importBatches.some((b) => b.type === type && b.year === year),
     }),
     {
       name: 'sts-stock-storage',

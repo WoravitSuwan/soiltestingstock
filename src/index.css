@@ -85,8 +85,22 @@ body {
 }
 
 /* Keep every table cell on one line so rows stay easy to scan (tables scroll sideways
-   on small screens instead of wrapping codes, names, numbers and badges). */
-table th,
-table td {
+   on small screens instead of wrapping codes, names, numbers and badges). Wrapped in
+   :where() so it carries zero specificity — a plain "whitespace-normal" class on a
+   specific cell (e.g. a product-name column) always wins over this default. */
+table :where(th, td) {
   white-space: nowrap;
+}
+
+/* All-Stock Summary report: sized to match A4 landscape (297 x 210mm) both on screen and
+   when printed natively (Ctrl+P) — the EXPORT - PDF button already renders A4 landscape
+   via jsPDF, independent of this. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  .report-a4-page {
+    min-height: 0;
+  }
 }

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ListFilter, Bookmark, BadgeCheck, Save } from 'lucide-react'
+import { ListFilter, Bookmark, BadgeCheck, Save, Upload } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import { FormRow, inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
 import TransactionSearchModal from '../components/TransactionSearchModal'
+import StockImportModal from '../components/StockImportModal'
 import ProductCodeField from '../components/ProductCodeField'
+import MoneyInput from '../components/MoneyInput'
 import { TruckIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
 import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
@@ -37,6 +39,7 @@ export default function StockOut() {
   const [editingId, setEditingId] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
 
   useEffect(() => {
@@ -124,7 +127,14 @@ export default function StockOut() {
 
   return (
     <SidebarLayout title="บันทึกสินค้าออก" backTo="/">
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+        >
+          <Upload size={16} /> นำเข้าไฟล์
+        </button>
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
@@ -168,10 +178,10 @@ export default function StockOut() {
               <input type="number" min="0" step="any" value={form.qty} onChange={(e) => handleQtyChange(e.target.value)} className={inputClass()} />
             </FormRow>
             <FormRow label="8. ราคา / หน่วย">
-              <input type="number" min="0" step="any" value={form.price} onChange={(e) => handlePriceChange(e.target.value)} className={inputClass()} />
+              <MoneyInput value={form.price} onChange={handlePriceChange} />
             </FormRow>
             <FormRow label="9. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
-              <input type="number" min="0" step="any" value={form.total} onChange={set('total')} className={inputClass()} />
+              <MoneyInput value={form.total} onChange={(v) => setForm((f) => ({ ...f, total: v }))} />
             </FormRow>
             <FormRow label="10. หมายเหตุ">
               <input value={form.note} onChange={set('note')} className={inputClass()} />
@@ -218,6 +228,7 @@ export default function StockOut() {
       </form>
 
       <TransactionSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} initialType="out" />
+      <StockImportModal open={importOpen} onClose={() => setImportOpen(false)} type="out" />
     </SidebarLayout>
   )
 }
