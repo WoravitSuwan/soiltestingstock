@@ -3,7 +3,7 @@ import { FileSpreadsheet, FileDown, PackageSearch, CalendarRange, ClipboardList,
 import SidebarLayout from '../components/SidebarLayout'
 import ProductPickerModal from '../components/ProductPickerModal'
 import DateTextInput from '../components/DateTextInput'
-import ShowMoreButton, { useShowMore } from '../components/ShowMore'
+import Pagination, { usePagination } from '../components/Pagination'
 import { useStore } from '../store/useStore'
 import { buildItemLedger, buildAllStockSummary, groupByCode } from '../utils/stockCalc'
 import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
@@ -142,7 +142,9 @@ function ItemLedgerReport() {
   // the spec opens the รหัสสินค้า popup straight away
   const [pickerOpen, setPickerOpen] = useState(true)
   const [selected, setSelected] = useState(null) // null | 'ALL' | product
-  const [includeIdle, setIncludeIdle] = useState(false) // ALL view: also list products with no movement
+  // "*" + Enter promises "every product record" (see the help text below), so ALL defaults
+  // to including idle products too; the checkbox lets you narrow to movement-only after.
+  const [includeIdle, setIncludeIdle] = useState(true)
   // like the spec, the report lists every movement by default; a start date adds ยอดยกมา
   const [range, setRange] = useState({ from: '', to: '' })
   const printRef = useRef(null)
@@ -174,7 +176,7 @@ function ItemLedgerReport() {
         ledger: buildItemLedger(p, insByCode.get(p.code) ?? [], outsByCode.get(p.code) ?? [], bounds),
       }))
   }, [selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds])
-  const ledgerPage = useShowMore(allLedgers ?? [], 20, `${selected === 'ALL'}-${includeIdle}`)
+  const ledgerPage = usePagination(allLedgers ?? [], 100, `${selected === 'ALL'}-${includeIdle}`)
 
   function handleExportExcel() {
     if (!selected) return
@@ -268,7 +270,7 @@ function ItemLedgerReport() {
       {selected && (
         <div ref={printRef} className="flex flex-col gap-6">
           {selected === 'ALL'
-            ? ledgerPage.visible.map(({ product, ledger }) => (
+            ? ledgerPage.pageItems.map(({ product, ledger }) => (
                 <ItemLedgerTable key={product.code} product={product} ledger={ledger} from={range.from} />
               ))
             : singleLedger && <ItemLedgerTable product={selected} ledger={singleLedger} from={range.from} />}
@@ -280,12 +282,14 @@ function ItemLedgerReport() {
         </div>
       )}
       {selected === 'ALL' && (
-        <ShowMoreButton
-          shown={ledgerPage.visible.length}
-          total={allLedgers.length}
-          remaining={ledgerPage.remaining}
-          onMore={ledgerPage.showMore}
-          step={20}
+        <Pagination
+          page={ledgerPage.page}
+          totalPages={ledgerPage.totalPages}
+          totalItems={allLedgers.length}
+          onFirst={ledgerPage.goFirst}
+          onPrev={ledgerPage.goPrev}
+          onNext={ledgerPage.goNext}
+          onLast={ledgerPage.goLast}
         />
       )}
 
@@ -313,7 +317,7 @@ function ItemLedgerTable({ product, ledger, from }) {
         <span className="whitespace-nowrap text-[var(--text-secondary)]">
           รหัสสินค้า : <span className="font-semibold text-red-400">{product.code}</span>
         </span>
-        <span className="truncate text-[var(--text-secondary)]" title={product.name}>
+        <span className="break-words text-[var(--text-secondary)]">
           ชื่อสินค้า : <span className="font-semibold text-red-400">{product.name}</span>
         </span>
       </div>
@@ -425,10 +429,22 @@ function AllStockSummaryReport() {
 
   const rows = useMemo(() => {
     const sortedProducts = [...products].sort((a, b) => thaiCompare(a.code, b.code))
-    return buildAllStockSummary(sortedProducts, stockIns, stockOuts, fromSortable ?? undefined, toSortable ?? undefined)
+    const all = buildAllStockSummary(sortedProducts, stockIns, stockOuts, fromSortable ?? undefined, toSortable ?? undefined)
+    // Hide products with zero movement in the period (ยอดยกมา, ซื้อ, ออก, คงเหลือ all zero).
+    return all.filter(
+      (r) =>
+        r.opening.qty !== 0 ||
+        r.opening.value !== 0 ||
+        r.in.qty !== 0 ||
+        r.in.value !== 0 ||
+        r.out.qty !== 0 ||
+        r.out.value !== 0 ||
+        r.closing.qty !== 0 ||
+        r.closing.value !== 0,
+    )
   }, [products, stockIns, stockOuts, fromSortable, toSortable])
 
-  const summaryPage = useShowMore(rows, 200, `${fromSortable}-${toSortable}`)
+  const summaryPage = usePagination(rows, 100, `${fromSortable}-${toSortable}`)
 
   const totals = useMemo(
     () =>
@@ -494,10 +510,10 @@ function AllStockSummaryReport() {
               </tr>
             </thead>
             <tbody>
-              {summaryPage.visible.map((r) => (
+              {summaryPage.pageItems.map((r) => (
                 <tr key={r.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                   <td className="whitespace-nowrap px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
-                  <td className="px-2 py-2">{r.name}</td>
+                  <td className="max-w-[260px] whitespace-normal break-words px-2 py-2">{r.name}</td>
                   <td className={`${numCell} text-red-400`}>{formatNumber(r.opening.qty)}</td>
                   <td className={`${numCell} text-red-400`}>{formatMoney(r.opening.value)}</td>
                   <td className={`${numCell} text-emerald-300`}>{formatNumber(r.in.qty)}</td>
@@ -530,12 +546,14 @@ function AllStockSummaryReport() {
           </table>
         </div>
       </div>
-      <ShowMoreButton
-        shown={summaryPage.visible.length}
-        total={rows.length}
-        remaining={summaryPage.remaining}
-        onMore={summaryPage.showMore}
-        step={200}
+      <Pagination
+        page={summaryPage.page}
+        totalPages={summaryPage.totalPages}
+        totalItems={rows.length}
+        onFirst={summaryPage.goFirst}
+        onPrev={summaryPage.goPrev}
+        onNext={summaryPage.goNext}
+        onLast={summaryPage.goLast}
       />
     </div>
   )

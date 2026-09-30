@@ -6,6 +6,7 @@ import { FormRow, inputClass } from '../components/FormField'
 import DateTextInput from '../components/DateTextInput'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import ProductCodeField from '../components/ProductCodeField'
+import MoneyInput from '../components/MoneyInput'
 import { WarehouseIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
 import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
@@ -149,10 +150,10 @@ export default function StockIn() {
               <input type="number" min="0" step="any" value={form.qty} onChange={(e) => handleQtyChange(e.target.value)} className={inputClass()} />
             </FormRow>
             <FormRow label="7. ราคา / หน่วย">
-              <input type="number" min="0" step="any" value={form.price} onChange={(e) => handlePriceChange(e.target.value)} className={inputClass()} />
+              <MoneyInput value={form.price} onChange={handlePriceChange} />
             </FormRow>
             <FormRow label="8. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
-              <input type="number" min="0" step="any" value={form.total} onChange={set('total')} className={inputClass()} />
+              <MoneyInput value={form.total} onChange={(v) => setForm((f) => ({ ...f, total: v }))} />
             </FormRow>
             <FormRow label="9. SO / LOT">
               <input value={form.soLot} onChange={set('soLot')} className={inputClass()} />

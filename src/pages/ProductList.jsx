@@ -3,7 +3,8 @@ import { Plus, Pencil, Trash2, Search, Upload, Download, QrCode } from 'lucide-r
 import SidebarLayout from '../components/SidebarLayout'
 import Modal from '../components/Modal'
 import ProductQrModal from '../components/ProductQrModal'
-import ShowMoreButton, { useShowMore } from '../components/ShowMore'
+import Pagination, { usePagination } from '../components/Pagination'
+import MoneyInput from '../components/MoneyInput'
 import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
 import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
@@ -38,7 +39,7 @@ export default function ProductList() {
       : products
     return [...list].sort((a, b) => thaiCompare(a.code, b.code))
   }, [products, query])
-  const page = useShowMore(filtered, 100, query)
+  const page = usePagination(filtered, 100, query)
 
   function openCreate() {
     setEditingCode(null)
@@ -212,10 +213,10 @@ export default function ProductList() {
             </tr>
           </thead>
           <tbody>
-            {page.visible.map((p) => (
+            {page.pageItems.map((p) => (
               <tr key={p.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                 <td className="px-4 py-3 font-mono text-[var(--text-accent)]">{p.code}</td>
-                <td className="px-4 py-3">{p.name}</td>
+                <td className="max-w-[320px] whitespace-normal break-words px-4 py-3">{p.name}</td>
                 <td className="px-4 py-3 text-right">{formatNumber(p.openingQty)}</td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">{p.unit}</td>
                 <td className="px-4 py-3 text-right">{formatMoney(p.unitPrice)}</td>
@@ -256,11 +257,14 @@ export default function ProductList() {
           </tbody>
         </table>
       </div>
-      <ShowMoreButton
-        shown={page.visible.length}
-        total={filtered.length}
-        remaining={page.remaining}
-        onMore={page.showMore}
+      <Pagination
+        page={page.page}
+        totalPages={page.totalPages}
+        totalItems={filtered.length}
+        onFirst={page.goFirst}
+        onPrev={page.goPrev}
+        onNext={page.goNext}
+        onLast={page.goLast}
       />
 
       <ProductQrModal product={qrProduct} onClose={() => setQrProduct(null)} />
@@ -308,11 +312,9 @@ export default function ProductList() {
             />
           </FormField>
           <FormField label="ราคาหน่วยละ" hint="ราคาต้นทุนไม่รวม VAT">
-            <input
-              type="number"
+            <MoneyInput
               value={form.unitPrice}
-              onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
-              className={inputClass()}
+              onChange={(v) => setForm((f) => ({ ...f, unitPrice: v }))}
             />
           </FormField>
         </div>

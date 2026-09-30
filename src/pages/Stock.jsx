@@ -3,7 +3,7 @@ import { Search, AlertTriangle, ScanLine } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import { inputClass } from '../components/FormField'
 import QrScannerModal from '../components/QrScannerModal'
-import ShowMoreButton, { useShowMore } from '../components/ShowMore'
+import Pagination, { usePagination } from '../components/Pagination'
 import { useStore } from '../store/useStore'
 import { groupByCode, sumStockIn, sumStockOut } from '../utils/stockCalc'
 import { thaiCompare, formatNumber } from '../utils/format'
@@ -47,7 +47,7 @@ export default function Stock() {
       })
   }, [allRows, query])
 
-  const page = useShowMore(rows, 100, query)
+  const page = usePagination(rows, 100, query)
 
   const handleScan = useCallback((text) => setQuery(text), [])
 
@@ -97,7 +97,7 @@ export default function Stock() {
             </tr>
           </thead>
           <tbody>
-            {page.visible.map((r) => (
+            {page.pageItems.map((r) => (
               <tr
                 key={r.code}
                 className={`border-t border-[var(--border-color-soft)] hover:bg-[var(--bg-hover)] ${
@@ -105,7 +105,7 @@ export default function Stock() {
                 }`}
               >
                 <td className={`px-4 py-3 font-mono ${r.low ? 'text-red-400' : 'text-[var(--text-accent)]'}`}>{r.code}</td>
-                <td className="px-4 py-3">{r.name}</td>
+                <td className="max-w-[320px] whitespace-normal break-words px-4 py-3">{r.name}</td>
                 <td className="px-4 py-3 text-right">{formatNumber(r.inQty)}</td>
                 <td className="px-4 py-3 text-right">{formatNumber(r.outQty)}</td>
                 <td className="px-4 py-3 text-right font-bold">{formatNumber(r.qty)}</td>
@@ -124,7 +124,15 @@ export default function Stock() {
           </tbody>
         </table>
       </div>
-      <ShowMoreButton shown={page.visible.length} total={rows.length} remaining={page.remaining} onMore={page.showMore} />
+      <Pagination
+        page={page.page}
+        totalPages={page.totalPages}
+        totalItems={rows.length}
+        onFirst={page.goFirst}
+        onPrev={page.goPrev}
+        onNext={page.goNext}
+        onLast={page.goLast}
+      />
 
       <QrScannerModal open={scanOpen} onClose={() => setScanOpen(false)} onResult={handleScan} />
     </SidebarLayout>
