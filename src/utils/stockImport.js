@@ -10,7 +10,7 @@ const HEADER_MAP = {
   qty: ['จำนวน', 'qty'],
   unitPrice: ['ราคาต่อหน่วย', 'ราคา/หน่วย', 'ราคาต่อหน่วยละ', 'ราคา', 'unitprice', 'price'],
   total: ['เป็นเงิน', 'มูลค่า', 'total', 'amount'],
-  note: ['หมายเหตุ', 'note', 'remark'],
+  note: ['หมายเหตุ', 'หมายเหตุ/remark', 'remark', 'remarks', 'note', 'notes', 'comment', 'คำอธิบาย'],
 }
 const FIELDS = Object.keys(HEADER_MAP)
 const HEADER_SCAN_ROWS = 20

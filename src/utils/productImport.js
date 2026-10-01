@@ -98,9 +98,16 @@ export function codeText(cell) {
   return String(cell.v)
 }
 
-// Trims and collapses line breaks/tabs that sneak in from copy-pasted cells.
+// Trims and collapses line breaks/tabs that sneak in from copy-pasted cells, and strips
+// invisible characters (BOM, zero-width space, non-breaking space) that some exports
+// leave at the start of a cell — otherwise a note like "﻿ยอดยกมา 31/12/2568" would
+// silently fail a startsWith/regex match against "ยอดยกมา".
 export function cleanText(v) {
-  return String(v ?? '').replace(/[\r\n\t]+/g, ' ').trim()
+  return String(v ?? '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/[​﻿]/g, '')
+    .replace(/ /g, ' ')
+    .trim()
 }
 
 export function buildProductExportAoa(products) {

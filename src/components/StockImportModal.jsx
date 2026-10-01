@@ -140,9 +140,22 @@ export default function StockImportModal({ open, onClose, type }) {
 
       {pending && (
         <div>
-          <div className="mb-4 text-sm text-[var(--text-secondary)]">
+          <div className="mb-2 text-sm text-[var(--text-secondary)]">
             ไฟล์: <span className="font-semibold text-[var(--text-primary)]">{pending.fileName}</span> — อ่านได้{' '}
             {formatNumber(pending.totalRowsRead)} แถว
+          </div>
+
+          {/* Always visible, not just when ambiguous — if this reads "0 จาก N" for a file
+              that's actually all ยอดยกมา, that's the moment to notice and pick the dropdown
+              option below, instead of only finding out later in Reports. */}
+          <div
+            className={`mb-4 text-xs ${
+              pending.hasNoteColumn && pending.openingNoteCount > 0 ? 'text-[var(--text-faint)]' : 'font-medium text-amber-300'
+            }`}
+          >
+            {pending.hasNoteColumn
+              ? `ตรวจพบหมายเหตุ "ยอดยกมา" ใน ${formatNumber(pending.openingNoteCount)} จาก ${formatNumber(pending.rows.length)} แถว`
+              : 'ไม่พบคอลัมน์หมายเหตุในไฟล์นี้ — ระบบแยกยอดยกมาจากหมายเหตุไม่ได้ ต้องเลือกประเภทเองด้านล่าง'}
           </div>
 
           <label className="mb-4 flex flex-wrap items-center gap-3">
@@ -165,7 +178,9 @@ export default function StockImportModal({ open, onClose, type }) {
             <div className="mb-4 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3">
               <label className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-sky-200">
-                  ไฟล์นี้ไม่ได้ระบุ "ยอดยกมา" ชัดเจนทุกแถว — แถวที่เหลือ (ไม่มีหมายเหตุ "ยอดยกมา") คือรายการประเภทใด?
+                  {pending.openingNoteCount === 0
+                    ? 'ไม่พบหมายเหตุ "ยอดยกมา" แถวไหนเลย — ถ้าไฟล์นี้คือยอดยกมาทั้งหมด (แค่ตรวจจับหมายเหตุไม่ได้) ให้เลือก "ยอดยกมา" ด้านล่าง มิฉะนั้นข้อมูลจะถูกนับเป็นรายการซื้อ/ขายจริง'
+                    : `พบ "ยอดยกมา" ใน ${formatNumber(pending.openingNoteCount)} แถวเท่านั้น — แถวที่เหลือไม่มีหมายเหตุนี้ คือรายการประเภทใด?`}
                 </span>
                 <select
                   value={fallbackType}
