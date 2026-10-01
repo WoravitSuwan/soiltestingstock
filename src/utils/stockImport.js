@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx'
 import { codeText, cleanText, toNumber } from './productImport'
-import { fromThaiDate, isValidDDMMYYYY } from './date'
+import { fromThaiDate, isValidDDMMYYYY, todayDDMMYYYY } from './date'
 import { lineTotal } from './format'
+import { genUuid } from './id'
 
 const HEADER_MAP = {
   code: ['รหัส', 'รหัสสินค้า', 'code'],
@@ -33,10 +34,11 @@ function mapHeaderRow(cells) {
   return columns
 }
 
-// Pulls "ยอดยกมา DD/MM/YYYY" (พ.ศ.) out of a note cell -> { day, month, beYear } or null.
-const NOTE_DATE_RE = /(\d{1,2})\/(\d{1,2})\/(\d{4})/
-function extractNoteDate(note) {
-  const m = NOTE_DATE_RE.exec(String(note ?? ''))
+// "ยอดยกมา DD/MM/YYYY" (พ.ศ.) -> { day, month, beYear }, only when the note actually
+// starts with ยอดยกมา (not just any date-like text elsewhere in the cell).
+const OPENING_NOTE_RE = /^ยอดยกมา\D*(\d{1,2})\/(\d{1,2})\/(\d{4})/
+function parseOpeningNote(note) {
+  const m = OPENING_NOTE_RE.exec(String(note ?? '').trim())
   if (!m) return null
   return { day: Number(m[1]), month: Number(m[2]), beYear: Number(m[3]) }
 }
@@ -48,6 +50,9 @@ function extractNoteDate(note) {
 //   "รวม" (total) row is skipped, since its code column is blank.
 // - Rows where จำนวน or ราคาต่อหน่วย aren't valid numbers are reported in `errors` and
 //   excluded from `rows` rather than imported with garbage values.
+// - A row whose หมายเหตุ starts with "ยอดยกมา DD/MM/YYYY" is flagged `isOpeningNote` with
+//   its own carried-forward date; `openingNoteCount < rows.length` (or no note column at
+//   all) means the file's movement type is ambiguous and the caller should ask the user.
 export function parseStockWorkbook(arrayBuffer) {
   const wb = XLSX.read(arrayBuffer, { type: 'array' })
   const sheet = wb.Sheets[wb.SheetNames[0]]
@@ -63,14 +68,18 @@ export function parseStockWorkbook(arrayBuffer) {
       break
     }
   }
-  if (headerIdx === -1) return { rows: [], errors: [], detectedYear: null, totalRowsRead: 0 }
+  if (headerIdx === -1) {
+    return { rows: [], errors: [], detectedYear: null, totalRowsRead: 0, hasNoteColumn: false, openingNoteCount: 0 }
+  }
 
   const origin = XLSX.utils.decode_range(sheet['!ref'] || 'A1').s
   const firstRow = origin.r + 1
+  const hasNoteColumn = columns.note !== undefined
 
   const rows = []
   const errors = []
   const yearCounts = new Map()
+  let openingNoteCount = 0
 
   for (let i = headerIdx + 1; i < grid.length; i += 1) {
     const cells = grid[i]
@@ -81,7 +90,7 @@ export function parseStockWorkbook(arrayBuffer) {
     const name = columns.name !== undefined ? cleanText(cells[columns.name]) : ''
     const qtyRaw = columns.qty !== undefined ? cells[columns.qty] : ''
     const priceRaw = columns.unitPrice !== undefined ? cells[columns.unitPrice] : ''
-    const note = columns.note !== undefined ? cleanText(cells[columns.note]) : ''
+    const note = hasNoteColumn ? cleanText(cells[columns.note]) : ''
 
     const qty = toNumber(qtyRaw)
     const unitPrice = toNumber(priceRaw)
@@ -96,13 +105,16 @@ export function parseStockWorkbook(arrayBuffer) {
       continue
     }
 
-    const noteDate = extractNoteDate(note)
-    if (noteDate) yearCounts.set(noteDate.beYear, (yearCounts.get(noteDate.beYear) ?? 0) + 1)
+    const openingNote = parseOpeningNote(note)
+    if (openingNote) {
+      openingNoteCount += 1
+      yearCounts.set(openingNote.beYear, (yearCounts.get(openingNote.beYear) ?? 0) + 1)
+    }
 
     const totalRaw = columns.total !== undefined ? cells[columns.total] : ''
     const total = totalRaw !== '' ? toNumber(totalRaw) : Number(lineTotal(qty, unitPrice))
 
-    rows.push({ excelRow, code, name, qty, unitPrice, total, note, noteDate })
+    rows.push({ excelRow, code, name, qty, unitPrice, total, note, openingNote, isOpeningNote: !!openingNote })
   }
 
   let detectedYear = null
@@ -114,17 +126,21 @@ export function parseStockWorkbook(arrayBuffer) {
     }
   }
 
-  return { rows, errors, detectedYear, totalRowsRead: rows.length + errors.length }
+  return { rows, errors, detectedYear, totalRowsRead: rows.length + errors.length, hasNoteColumn, openingNoteCount }
 }
 
-// CE-stored date for a parsed row: the row's own "ยอดยกมา" date if it had one, otherwise
-// 1 Jan of the confirmed import year (beYear, พ.ศ.).
-function resolveDate(row, beYear) {
-  if (row.noteDate) {
-    const candidate = `${String(row.noteDate.day).padStart(2, '0')}/${String(row.noteDate.month).padStart(2, '0')}/${row.noteDate.beYear}`
+// CE-stored date for a parsed row: its own "ยอดยกมา" date if it had one. Failing that, a
+// row classified as opening_balance (by the whole-file fallback) uses 1 Jan of the
+// confirmed import year — but an ordinary ซื้อ/ออก fallback row uses today's date instead,
+// since "1 Jan" would make the report's own pre-range roll-up silently fold it back into
+// ยอดยกมา, defeating the point of tagging it as an ordinary movement.
+function resolveDate(row, beYear, movementType) {
+  if (row.openingNote) {
+    const candidate = `${String(row.openingNote.day).padStart(2, '0')}/${String(row.openingNote.month).padStart(2, '0')}/${row.openingNote.beYear}`
     const ce = fromThaiDate(candidate)
     if (ce) return ce
   }
+  if (movementType !== 'opening_balance') return todayDDMMYYYY()
   const fallback = `01/01/${beYear}`
   return isValidDDMMYYYY(fromThaiDate(fallback) ?? '') ? fromThaiDate(fallback) : fromThaiDate('01/01/2500')
 }
@@ -132,26 +148,38 @@ function resolveDate(row, beYear) {
 // Builds the plan for applyStockImport: which products need to be created, and the
 // stock-in/out rows to add. Existing products are never modified — codes already in the
 // system only get a new movement row, never overwritten.
-export function planStockImport(products, rows, { year }) {
-  const existing = new Set(products.map((p) => p.code))
-  const seenNew = new Map()
+//
+// Each row's movementType is 'opening_balance' when its own note said so; otherwise it
+// falls back to `fallbackMovementType` ('opening_balance' | 'in' | 'out'), which the UI
+// must ask the user for whenever the file didn't unambiguously mark every row ยอดยกมา.
+export function planStockImport(products, rows, { year, fallbackMovementType = 'opening_balance' }) {
+  const existingByCode = new Map(products.map((p) => [p.code, p]))
+  const newIdByCode = new Map()
   const newProducts = []
   const stockRows = []
 
   rows.forEach((row) => {
-    if (!existing.has(row.code) && !seenNew.has(row.code)) {
-      seenNew.set(row.code, true)
-      newProducts.push({ code: row.code, name: row.name || row.code, unit: 'EA', unitPrice: row.unitPrice, openingQty: 1 })
+    let productId = existingByCode.get(row.code)?.id
+    if (!productId) {
+      if (!newIdByCode.has(row.code)) {
+        const id = genUuid()
+        newIdByCode.set(row.code, id)
+        newProducts.push({ id, code: row.code, name: row.name || row.code, unit: 'EA', unitPrice: row.unitPrice, openingQty: 1 })
+      }
+      productId = newIdByCode.get(row.code)
     }
+    const movementType = row.isOpeningNote ? 'opening_balance' : fallbackMovementType
     stockRows.push({
+      productId,
       productCode: row.code,
       productName: row.name || row.code,
       qty: row.qty,
       price: row.unitPrice,
       total: row.total,
-      date: resolveDate(row, year),
+      date: resolveDate(row, year, movementType),
       note: row.note,
       year,
+      movementType,
     })
   })
 

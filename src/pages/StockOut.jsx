@@ -12,12 +12,13 @@ import { TruckIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
 import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
 import { formatNumber, lineTotal } from '../utils/format'
-import { sumStockIn, sumStockOut } from '../utils/stockCalc'
+import { filterForProduct, sumMovements } from '../utils/stockCalc'
 
 function makeEmptyForm() {
   return {
     date: todayDDMMYYYY(),
     productCode: '',
+    productId: '',
     productName: '',
     customer: '',
     invoice: '',
@@ -26,6 +27,7 @@ function makeEmptyForm() {
     price: '',
     total: '',
     note: '',
+    movementType: 'out',
   }
 }
 
@@ -52,13 +54,15 @@ export default function StockOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  // On-hand quantity for the entered code, excluding the row being edited.
+  // On-hand quantity for the entered product, excluding the row being edited. Matched by
+  // productId when the code resolved to a product, so it can't mix up two products that
+  // happen to share a (not-yet-deduplicated) code.
   const available = useMemo(() => {
-    const code = form.productCode.trim()
-    if (!code || !form.productName) return null
+    if (!form.productId || !form.productName) return null
+    const product = { id: form.productId, code: form.productCode.trim() }
     const outs = stockOuts.filter((t) => t.id !== editingId)
-    return sumStockIn(stockIns, code).qty - sumStockOut(outs, code).qty
-  }, [form.productCode, form.productName, stockIns, stockOuts, editingId])
+    return sumMovements(filterForProduct(stockIns, product)).qty - sumMovements(filterForProduct(outs, product)).qty
+  }, [form.productId, form.productCode, form.productName, stockIns, stockOuts, editingId])
 
   const isReservation = !!form.so.trim() && !form.invoice.trim()
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -74,9 +78,9 @@ export default function StockOut() {
   // Entering a code pops in the name and unit price from PRODUCT LIST; ราคารวม follows.
   function handleProductSelect(code, match) {
     setForm((f) => {
-      if (!match) return { ...f, productCode: code, productName: '' }
+      if (!match) return { ...f, productCode: code, productId: '', productName: '' }
       const price = String(Number(match.unitPrice) || 0)
-      return { ...f, productCode: code, productName: match.name, price, total: lineTotal(f.qty, price) }
+      return { ...f, productCode: code, productId: match.id, productName: match.name, price, total: lineTotal(f.qty, price) }
     })
   }
 
@@ -101,6 +105,9 @@ export default function StockOut() {
       qty,
       price: Number(form.price) || 0,
       total: Number(form.total) || 0,
+      // Preserve an imported row's movementType (e.g. opening_balance) when editing it
+      // here — this ordinary form only ever creates new rows as 'out'.
+      movementType: form.movementType || 'out',
     }
     if (editingId) updateStockOut(editingId, payload)
     else addStockOut(payload)
@@ -114,6 +121,7 @@ export default function StockOut() {
     setForm({
       date: row.date,
       productCode: row.productCode,
+      productId: row.productId ?? '',
       productName: row.productName,
       customer: row.customer ?? '',
       invoice: row.invoice ?? '',
@@ -122,6 +130,7 @@ export default function StockOut() {
       price: String(row.price),
       total: String(row.total),
       note: row.note ?? '',
+      movementType: row.movementType || 'out',
     })
   }
 

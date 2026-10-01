@@ -1,176 +1,390 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { thaiCompare } from '../utils/format'
-import { genId } from '../utils/id'
+import { ceToISO, isoToCE, todayDDMMYYYY } from '../utils/date'
+import { useAuthStore } from './useAuthStore'
 
-// The system starts empty; products come from PRODUCT LIST (Add product / Import Excel).
-const seedProducts = []
-
-// localStorage holds ~5M characters per site; ~10k products take about 1M. If a save
-// ever fails (quota, private mode) tell the user instead of silently losing data.
-let warnedSaveFailure = false
-const safeLocalStorage = {
-  getItem: (name) => localStorage.getItem(name),
-  setItem: (name, value) => {
-    try {
-      localStorage.setItem(name, value)
-    } catch {
-      if (!warnedSaveFailure) {
-        warnedSaveFailure = true
-        alert('บันทึกข้อมูลลงเครื่องไม่สำเร็จ (พื้นที่เก็บข้อมูลของเบราว์เซอร์เต็ม) — ข้อมูลล่าสุดอาจหายเมื่อรีเฟรชหน้า')
-      }
-    }
-  },
-  removeItem: (name) => localStorage.removeItem(name),
+function currentUsername() {
+  try {
+    const { users, currentUserId } = useAuthStore.getState()
+    return users.find((u) => u.id === currentUserId)?.username ?? null
+  } catch {
+    return null
+  }
 }
 
-export const useStore = create(
-  persist(
-    (set, get) => ({
-      products: seedProducts,
-      stockIns: [],
-      stockOuts: [],
-      importBatches: [],
+// ---------- row <-> app-shape mappers ----------
+function rowToProduct(row) {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    unit: row.unit,
+    unitPrice: Number(row.unit_price),
+    openingQty: Number(row.opening_qty),
+  }
+}
 
-      // Wipes products and every Stock In / Stock Out row (login accounts are untouched).
-      clearAllData: () => set({ products: [], stockIns: [], stockOuts: [], importBatches: [] }),
+function rowToMovement(row) {
+  const base = {
+    id: row.id,
+    date: isoToCE(row.movement_date) ?? todayDDMMYYYY(),
+    productId: row.product_id,
+    productCode: row.product_code,
+    productName: row.product_name,
+    qty: Number(row.qty),
+    price: Number(row.unit_price),
+    total: Number(row.total),
+    note: row.note ?? '',
+    movementType: row.is_opening_balance ? 'opening_balance' : row.direction,
+    year: row.reference_year ?? undefined,
+    source: row.source,
+    importBatchId: row.import_batch_id,
+  }
+  return row.direction === 'in'
+    ? { ...base, supplier: row.supplier ?? '', po: row.po ?? '', soLot: row.so_lot ?? '', customer: row.customer ?? '' }
+    : { ...base, customer: row.customer ?? '', invoice: row.invoice ?? '', so: row.so ?? '' }
+}
 
-      // ---------- Products ----------
-      addProduct: (product) =>
-        set((state) => ({
-          products: [...state.products, product].sort((a, b) => thaiCompare(a.code, b.code)),
-        })),
+function rowToBatch(row) {
+  return {
+    id: row.id,
+    type: row.direction,
+    year: row.year,
+    fileName: row.file_name,
+    rowCount: row.row_count,
+    newProductCount: row.new_product_count,
+    importedAt: row.imported_at,
+  }
+}
 
-      updateProduct: (code, updates) =>
-        set((state) => {
-          const syncName = (t) =>
-            updates.name !== undefined && t.productCode === code ? { ...t, productName: updates.name } : t
-          return {
-            products: state.products
-              .map((p) => (p.code === code ? { ...p, ...updates } : p))
-              .sort((a, b) => thaiCompare(a.code, b.code)),
-            stockIns: state.stockIns.map(syncName),
-            stockOuts: state.stockOuts.map(syncName),
-          }
-        }),
+// entry: a Stock In/Out form payload or a planStockImport stockRow (same shape either way)
+function movementToRow(direction, entry) {
+  return {
+    product_id: entry.productId || null,
+    product_code: entry.productCode,
+    product_name: entry.productName,
+    direction,
+    is_opening_balance: entry.movementType === 'opening_balance',
+    qty: entry.qty,
+    unit_price: entry.price,
+    total: entry.total,
+    movement_date: ceToISO(entry.date) ?? ceToISO(todayDDMMYYYY()),
+    reference_year: entry.year ?? null,
+    source: entry.source ?? 'manual',
+    import_batch_id: entry.importBatchId ?? null,
+    supplier: entry.supplier || null,
+    po: entry.po || null,
+    so_lot: entry.soLot || null,
+    customer: entry.customer || null,
+    invoice: entry.invoice || null,
+    so: entry.so || null,
+    note: entry.note || null,
+    created_by: currentUsername(),
+  }
+}
 
-      deleteProduct: (code) =>
-        set((state) => ({
-          products: state.products.filter((p) => p.code !== code),
-        })),
+function sortProducts(products) {
+  return [...products].sort((a, b) => thaiCompare(a.code, b.code))
+}
 
-      // Applies a plan from planProductImport in one go: adds new codes, overwrites changed
-      // ones with the file's data, optionally removes codes missing from the file, and keeps
-      // the product name copied onto existing Stock In / Stock Out rows in sync.
-      applyProductImport: (plan) =>
-        set((state) => {
-          const updatesByCode = new Map(plan.updated.map((u) => [u.code, u.updates]))
-          const removedCodes = new Set(plan.removed.map((p) => p.code))
-          const products = [
-            ...state.products
-              .filter((p) => !removedCodes.has(p.code))
-              .map((p) => (updatesByCode.has(p.code) ? { ...p, ...updatesByCode.get(p.code) } : p)),
-            ...plan.added,
-          ].sort((a, b) => thaiCompare(a.code, b.code))
+const NOT_CONFIGURED_MSG = 'ยังไม่ได้ตั้งค่า Supabase — ตรวจสอบไฟล์ .env (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)'
 
-          const renamed = new Map(
-            plan.updated.filter((u) => u.updates.name !== undefined).map((u) => [u.code, u.updates.name]),
-          )
-          const syncName = (t) => (renamed.has(t.productCode) ? { ...t, productName: renamed.get(t.productCode) } : t)
+export const useStore = create((set, get) => ({
+  products: [],
+  stockIns: [],
+  stockOuts: [],
+  importBatches: [],
+  loading: true,
+  error: null,
+  _subscribed: false,
 
-          return {
-            products,
-            stockIns: renamed.size ? state.stockIns.map(syncName) : state.stockIns,
-            stockOuts: renamed.size ? state.stockOuts.map(syncName) : state.stockOuts,
-          }
-        }),
+  // Loads everything from Supabase once at app start, then keeps a realtime
+  // subscription open so a change made on another device/tab shows up here too.
+  init: async () => {
+    if (!isSupabaseConfigured) {
+      set({ loading: false, error: NOT_CONFIGURED_MSG })
+      return
+    }
+    try {
+      const [{ data: products, error: e1 }, { data: movements, error: e2 }, { data: batches, error: e3 }] = await Promise.all([
+        supabase.from('products').select('*'),
+        supabase.from('stock_movements').select('*'),
+        supabase.from('import_batches').select('*'),
+      ])
+      if (e1) throw e1
+      if (e2) throw e2
+      if (e3) throw e3
+      set({
+        products: sortProducts((products ?? []).map(rowToProduct)),
+        stockIns: (movements ?? []).filter((r) => r.direction === 'in').map(rowToMovement),
+        stockOuts: (movements ?? []).filter((r) => r.direction === 'out').map(rowToMovement),
+        importBatches: (batches ?? []).map(rowToBatch),
+        loading: false,
+        error: null,
+      })
+      get().subscribeRealtime()
+    } catch (err) {
+      set({ loading: false, error: err.message })
+    }
+  },
 
-      getProduct: (code) => get().products.find((p) => p.code === code),
+  subscribeRealtime: () => {
+    if (!isSupabaseConfigured || get()._subscribed) return
+    set({ _subscribed: true })
+    supabase
+      .channel('sts-stock-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => get().refetchProducts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => get().refetchMovements())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'import_batches' }, () => get().refetchBatches())
+      .subscribe()
+  },
 
-      // ---------- Stock In ----------
-      addStockIn: (entry) =>
-        set((state) => ({
-          stockIns: [...state.stockIns, { ...entry, id: genId('IN') }],
-        })),
+  refetchProducts: async () => {
+    const { data, error } = await supabase.from('products').select('*')
+    if (error) return
+    set({ products: sortProducts((data ?? []).map(rowToProduct)) })
+  },
+  refetchMovements: async () => {
+    const { data, error } = await supabase.from('stock_movements').select('*')
+    if (error) return
+    set({
+      stockIns: (data ?? []).filter((r) => r.direction === 'in').map(rowToMovement),
+      stockOuts: (data ?? []).filter((r) => r.direction === 'out').map(rowToMovement),
+    })
+  },
+  refetchBatches: async () => {
+    const { data, error } = await supabase.from('import_batches').select('*')
+    if (error) return
+    set({ importBatches: (data ?? []).map(rowToBatch) })
+  },
 
-      updateStockIn: (id, updates) =>
-        set((state) => ({
-          stockIns: state.stockIns.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-        })),
+  // Wipes products and every Stock In / Stock Out row (login accounts are untouched).
+  clearAllData: async () => {
+    const ALL = '00000000-0000-0000-0000-000000000000'
+    await supabase.from('stock_movements').delete().neq('id', ALL)
+    await supabase.from('import_batches').delete().neq('id', ALL)
+    await supabase.from('products').delete().neq('id', ALL)
+    await Promise.all([get().refetchProducts(), get().refetchMovements(), get().refetchBatches()])
+  },
 
-      deleteStockIn: (id) =>
-        set((state) => ({
-          stockIns: state.stockIns.filter((t) => t.id !== id),
-        })),
+  // ---------- Products ----------
+  // รหัสสินค้า is UNIQUE at the database level (see supabase/schema.sql) — the root fix
+  // for duplicate product codes. Every product also has a permanent id; Stock In/Out
+  // rows link to that id, so renaming or reusing a code never confuses which product a
+  // historical movement belongs to.
+  addProduct: async (product) => {
+    const { error } = await supabase.from('products').insert({
+      code: product.code,
+      name: product.name,
+      unit: product.unit,
+      unit_price: product.unitPrice,
+      opening_qty: product.openingQty,
+    })
+    if (error) {
+      alert(error.code === '23505' ? 'รหัสสินค้านี้มีอยู่แล้ว' : `เพิ่มสินค้าไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchProducts()
+  },
 
-      // ---------- Stock Out ----------
-      addStockOut: (entry) =>
-        set((state) => ({
-          stockOuts: [...state.stockOuts, { ...entry, id: genId('OUT') }],
-        })),
+  updateProduct: async (id, updates) => {
+    const patch = { updated_at: new Date().toISOString() }
+    if (updates.code !== undefined) patch.code = updates.code
+    if (updates.name !== undefined) patch.name = updates.name
+    if (updates.unit !== undefined) patch.unit = updates.unit
+    if (updates.unitPrice !== undefined) patch.unit_price = updates.unitPrice
+    if (updates.openingQty !== undefined) patch.opening_qty = updates.openingQty
 
-      updateStockOut: (id, updates) =>
-        set((state) => ({
-          stockOuts: state.stockOuts.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-        })),
+    const { error } = await supabase.from('products').update(patch).eq('id', id)
+    if (error) {
+      alert(error.code === '23505' ? 'รหัสสินค้านี้มีอยู่แล้ว' : `บันทึกไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    if (updates.name !== undefined || updates.code !== undefined) {
+      const sync = {}
+      if (updates.name !== undefined) sync.product_name = updates.name
+      if (updates.code !== undefined) sync.product_code = updates.code
+      await supabase.from('stock_movements').update(sync).eq('product_id', id)
+    }
+    await Promise.all([get().refetchProducts(), get().refetchMovements()])
+  },
 
-      deleteStockOut: (id) =>
-        set((state) => ({
-          stockOuts: state.stockOuts.filter((t) => t.id !== id),
-        })),
+  deleteProduct: async (id) => {
+    const { error } = await supabase.from('products').delete().eq('id', id)
+    if (error) {
+      alert(`ลบไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchProducts()
+  },
 
-      // ---------- Stock import (ยอดยกมา, by year) ----------
-      // Products in `newProducts` are created if their code doesn't already exist;
-      // existing products are never modified. `stockRows` are always appended as new
-      // Stock In / Stock Out rows — importing a year never overwrites or removes
-      // anything from a previously-imported year.
-      applyStockImport: ({ type, year, fileName, newProducts, stockRows }) =>
-        set((state) => {
-          const existingCodes = new Set(state.products.map((p) => p.code))
-          const products = [
-            ...state.products,
-            ...newProducts.filter((p) => !existingCodes.has(p.code)),
-          ].sort((a, b) => thaiCompare(a.code, b.code))
+  // Folds every record in `mergeIds` into `keepId`: their Stock In/Out history is
+  // repointed to the kept product, then the duplicate product records are removed.
+  mergeProducts: async (keepId, mergeIds) => {
+    const keep = get().products.find((p) => p.id === keepId)
+    if (!keep) return
+    const { error: moveErr } = await supabase
+      .from('stock_movements')
+      .update({ product_id: keepId, product_code: keep.code, product_name: keep.name })
+      .in('product_id', mergeIds)
+    if (moveErr) {
+      alert(`รวมรายการไม่สำเร็จ: ${moveErr.message}`)
+      return
+    }
+    const { error: delErr } = await supabase.from('products').delete().in('id', mergeIds)
+    if (delErr) {
+      alert(`ลบสินค้าซ้ำไม่สำเร็จ: ${delErr.message}`)
+      return
+    }
+    await Promise.all([get().refetchProducts(), get().refetchMovements()])
+  },
 
-          const key = type === 'out' ? 'stockOuts' : 'stockIns'
-          const idPrefix = type === 'out' ? 'OUT' : 'IN'
-          const newRows = stockRows.map((r) => ({
-            ...r,
-            id: genId(idPrefix),
-            source: 'import',
-            importBatchId: null, // filled in below once the batch id is known
-          }))
-          const batch = {
-            id: genId('BATCH'),
-            type,
-            year,
-            fileName,
-            rowCount: newRows.length,
-            newProductCount: newProducts.length,
-            importedAt: new Date().toISOString(),
-          }
-          newRows.forEach((r) => { r.importBatchId = batch.id })
+  // Applies a plan from planProductImport: adds new codes, overwrites changed ones with
+  // the file's data, optionally removes codes missing from the file, and keeps the
+  // product name copied onto existing Stock In / Stock Out rows in sync.
+  applyProductImport: async (plan) => {
+    const byCode = new Map(get().products.map((p) => [p.code, p]))
 
-          return {
-            products,
-            [key]: [...state[key], ...newRows],
-            importBatches: [...state.importBatches, batch],
-          }
-        }),
+    if (plan.updated.length) {
+      const rows = plan.updated.map((u) => {
+        const merged = { ...u.before, ...u.updates }
+        return {
+          id: byCode.get(u.code)?.id,
+          code: u.code,
+          name: merged.name,
+          unit: merged.unit,
+          unit_price: merged.unitPrice,
+          opening_qty: merged.openingQty,
+        }
+      })
+      const { error } = await supabase.from('products').upsert(rows)
+      if (error) {
+        alert(`อัปเดตสินค้าไม่สำเร็จ: ${error.message}`)
+        return
+      }
+      for (const u of plan.updated) {
+        if (u.updates.name === undefined) continue
+        const id = byCode.get(u.code)?.id
+        if (id) await supabase.from('stock_movements').update({ product_name: u.updates.name }).eq('product_id', id)
+      }
+    }
 
-      hasImportedYear: (type, year) =>
-        get().importBatches.some((b) => b.type === type && b.year === year),
-    }),
-    {
-      name: 'sts-stock-storage',
-      storage: createJSONStorage(() => safeLocalStorage),
-      // v1: one-time reset so the client starts testing from an empty system; data saved
-      // by the earlier (v0) builds is discarded the first time v1 loads.
-      version: 1,
-      migrate: (persisted, version) =>
-        version < 1 ? { products: [], stockIns: [], stockOuts: [] } : persisted,
-    },
-  ),
-)
+    if (plan.added.length) {
+      const { error } = await supabase.from('products').insert(
+        plan.added.map((p) => ({ code: p.code, name: p.name, unit: p.unit || 'EA', unit_price: p.unitPrice || 0, opening_qty: p.openingQty || 0 })),
+      )
+      if (error) {
+        alert(`เพิ่มสินค้าใหม่ไม่สำเร็จ: ${error.message}`)
+        return
+      }
+    }
+
+    if (plan.removed.length) {
+      const ids = plan.removed.map((p) => byCode.get(p.code)?.id).filter(Boolean)
+      if (ids.length) await supabase.from('products').delete().in('id', ids)
+    }
+
+    await Promise.all([get().refetchProducts(), get().refetchMovements()])
+  },
+
+  getProduct: (id) => get().products.find((p) => p.id === id),
+
+  // ---------- Stock In ----------
+  addStockIn: async (entry) => {
+    const { error } = await supabase.from('stock_movements').insert(movementToRow('in', entry))
+    if (error) {
+      alert(`บันทึกรับสินค้าไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchMovements()
+  },
+
+  updateStockIn: async (id, updates) => {
+    const { error } = await supabase.from('stock_movements').update(movementToRow('in', updates)).eq('id', id)
+    if (error) {
+      alert(`บันทึกการแก้ไขไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchMovements()
+  },
+
+  deleteStockIn: async (id) => {
+    const { error } = await supabase.from('stock_movements').delete().eq('id', id)
+    if (error) {
+      alert(`ลบไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchMovements()
+  },
+
+  // ---------- Stock Out ----------
+  addStockOut: async (entry) => {
+    const { error } = await supabase.from('stock_movements').insert(movementToRow('out', entry))
+    if (error) {
+      alert(`บันทึกสินค้าออกไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchMovements()
+  },
+
+  updateStockOut: async (id, updates) => {
+    const { error } = await supabase.from('stock_movements').update(movementToRow('out', updates)).eq('id', id)
+    if (error) {
+      alert(`บันทึกการแก้ไขไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchMovements()
+  },
+
+  deleteStockOut: async (id) => {
+    const { error } = await supabase.from('stock_movements').delete().eq('id', id)
+    if (error) {
+      alert(`ลบไม่สำเร็จ: ${error.message}`)
+      return
+    }
+    await get().refetchMovements()
+  },
+
+  // ---------- Stock import (ยอดยกมา / ซื้อ / ออก, by year) ----------
+  // Products in `newProducts` (already carrying a client-generated uuid, see
+  // planStockImport) are created if their code doesn't already exist; existing products
+  // are never modified. `stockRows` are always appended as new Stock In/Out rows —
+  // importing a year never overwrites or removes anything from a previously-imported year.
+  applyStockImport: async ({ type, year, fileName, newProducts, stockRows }) => {
+    const existingCodes = new Set(get().products.map((p) => p.code))
+    const toInsert = newProducts.filter((p) => !existingCodes.has(p.code))
+    if (toInsert.length) {
+      const { error } = await supabase.from('products').insert(
+        toInsert.map((p) => ({ id: p.id, code: p.code, name: p.name, unit: p.unit, unit_price: p.unitPrice, opening_qty: p.openingQty })),
+      )
+      if (error) {
+        alert(`สร้างสินค้าใหม่ไม่สำเร็จ: ${error.message}`)
+        return
+      }
+    }
+
+    const { data: batch, error: batchErr } = await supabase
+      .from('import_batches')
+      .insert({ direction: type, year, file_name: fileName, row_count: stockRows.length, new_product_count: toInsert.length })
+      .select()
+      .single()
+    if (batchErr) {
+      alert(`บันทึกประวัติการนำเข้าไม่สำเร็จ: ${batchErr.message}`)
+      return
+    }
+
+    const rows = stockRows.map((r) => ({ ...movementToRow(type, r), import_batch_id: batch.id, source: 'import' }))
+    const { error: rowsErr } = await supabase.from('stock_movements').insert(rows)
+    if (rowsErr) {
+      alert(`นำเข้ารายการไม่สำเร็จ: ${rowsErr.message}`)
+      return
+    }
+
+    await Promise.all([get().refetchProducts(), get().refetchMovements(), get().refetchBatches()])
+  },
+
+  hasImportedYear: (type, year) => get().importBatches.some((b) => b.type === type && b.year === year),
+}))
 
 export default useStore
