@@ -24,6 +24,12 @@ const safeLocalStorage = {
   removeItem: (name) => localStorage.removeItem(name),
 }
 
+// A movement "belongs" to a product by productId when linked, falling back to its
+// stored productCode for legacy rows created before products had ids.
+function belongsToProduct(t, product) {
+  return t.productId ? t.productId === product.id : t.productCode === product.code
+}
+
 export const useStore = create(
   persist(
     (set, get) => ({
@@ -36,28 +42,65 @@ export const useStore = create(
       clearAllData: () => set({ products: [], stockIns: [], stockOuts: [], importBatches: [] }),
 
       // ---------- Products ----------
+      // รหัสสินค้า is the human-facing business key and must stay unique, but every
+      // product also gets a permanent internal id — Stock In/Out rows link to that id,
+      // so renaming or (after a merge) reusing a code never confuses which product a
+      // historical movement belongs to.
       addProduct: (product) =>
         set((state) => ({
-          products: [...state.products, product].sort((a, b) => thaiCompare(a.code, b.code)),
+          products: [...state.products, { ...product, id: product.id ?? genId('PROD') }].sort((a, b) =>
+            thaiCompare(a.code, b.code),
+          ),
         })),
 
-      updateProduct: (code, updates) =>
+      updateProduct: (id, updates) =>
         set((state) => {
-          const syncName = (t) =>
-            updates.name !== undefined && t.productCode === code ? { ...t, productName: updates.name } : t
+          const current = state.products.find((p) => p.id === id)
+          if (!current) return state
+          const patch = {}
+          if (updates.name !== undefined) patch.productName = updates.name
+          if (updates.code !== undefined) patch.productCode = updates.code
+          const syncMovement = (t) => {
+            if (!belongsToProduct(t, current)) return t
+            return { ...t, ...patch, productId: id }
+          }
           return {
             products: state.products
-              .map((p) => (p.code === code ? { ...p, ...updates } : p))
+              .map((p) => (p.id === id ? { ...p, ...updates } : p))
               .sort((a, b) => thaiCompare(a.code, b.code)),
-            stockIns: state.stockIns.map(syncName),
-            stockOuts: state.stockOuts.map(syncName),
+            stockIns: state.stockIns.map(syncMovement),
+            stockOuts: state.stockOuts.map(syncMovement),
           }
         }),
 
-      deleteProduct: (code) =>
+      deleteProduct: (id) =>
         set((state) => ({
-          products: state.products.filter((p) => p.code !== code),
+          products: state.products.filter((p) => p.id !== id),
         })),
+
+      // Folds every record in `mergeIds` into `keepId`: their Stock In/Out history is
+      // repointed to the kept product (by productId when linked, otherwise by matching
+      // the merged records' code — safe here because we already know exactly which
+      // records are being merged) and the duplicate product records are removed.
+      mergeProducts: (keepId, mergeIds) =>
+        set((state) => {
+          const mergeSet = new Set(mergeIds)
+          const keep = state.products.find((p) => p.id === keepId)
+          if (!keep) return state
+          const merged = state.products.filter((p) => mergeSet.has(p.id))
+          const repoint = (t) => {
+            const belongsToMerged = t.productId
+              ? mergeSet.has(t.productId)
+              : merged.some((p) => p.code === t.productCode)
+            if (!belongsToMerged) return t
+            return { ...t, productId: keepId, productCode: keep.code, productName: keep.name }
+          }
+          return {
+            products: state.products.filter((p) => !mergeSet.has(p.id)),
+            stockIns: state.stockIns.map(repoint),
+            stockOuts: state.stockOuts.map(repoint),
+          }
+        }),
 
       // Applies a plan from planProductImport in one go: adds new codes, overwrites changed
       // ones with the file's data, optionally removes codes missing from the file, and keeps
@@ -66,17 +109,22 @@ export const useStore = create(
         set((state) => {
           const updatesByCode = new Map(plan.updated.map((u) => [u.code, u.updates]))
           const removedCodes = new Set(plan.removed.map((p) => p.code))
+          const idsByCode = new Map(state.products.map((p) => [p.code, p.id]))
+          const addedWithIds = plan.added.map((p) => ({ ...p, id: p.id ?? genId('PROD') }))
           const products = [
             ...state.products
               .filter((p) => !removedCodes.has(p.code))
               .map((p) => (updatesByCode.has(p.code) ? { ...p, ...updatesByCode.get(p.code) } : p)),
-            ...plan.added,
+            ...addedWithIds,
           ].sort((a, b) => thaiCompare(a.code, b.code))
 
           const renamed = new Map(
             plan.updated.filter((u) => u.updates.name !== undefined).map((u) => [u.code, u.updates.name]),
           )
-          const syncName = (t) => (renamed.has(t.productCode) ? { ...t, productName: renamed.get(t.productCode) } : t)
+          const syncName = (t) => {
+            if (!renamed.has(t.productCode)) return t
+            return { ...t, productName: renamed.get(t.productCode), productId: t.productId ?? idsByCode.get(t.productCode) }
+          }
 
           return {
             products,
@@ -85,7 +133,7 @@ export const useStore = create(
           }
         }),
 
-      getProduct: (code) => get().products.find((p) => p.code === code),
+      getProduct: (id) => get().products.find((p) => p.id === id),
 
       // ---------- Stock In ----------
       addStockIn: (entry) =>
@@ -119,11 +167,12 @@ export const useStore = create(
           stockOuts: state.stockOuts.filter((t) => t.id !== id),
         })),
 
-      // ---------- Stock import (ยอดยกมา, by year) ----------
+      // ---------- Stock import (ยอดยกมา / ซื้อ / ออก, by year) ----------
       // Products in `newProducts` are created if their code doesn't already exist;
       // existing products are never modified. `stockRows` are always appended as new
-      // Stock In / Stock Out rows — importing a year never overwrites or removes
-      // anything from a previously-imported year.
+      // Stock In / Stock Out rows (each already carrying productId + movementType from
+      // planStockImport) — importing a year never overwrites or removes anything from a
+      // previously-imported year.
       applyStockImport: ({ type, year, fileName, newProducts, stockRows }) =>
         set((state) => {
           const existingCodes = new Set(state.products.map((p) => p.code))
@@ -166,9 +215,32 @@ export const useStore = create(
       storage: createJSONStorage(() => safeLocalStorage),
       // v1: one-time reset so the client starts testing from an empty system; data saved
       // by the earlier (v0) builds is discarded the first time v1 loads.
-      version: 1,
-      migrate: (persisted, version) =>
-        version < 1 ? { products: [], stockIns: [], stockOuts: [] } : persisted,
+      // v2: products gain a permanent `id` (backfilled here for anyone already on v1);
+      // Stock In/Out rows get `productId` opportunistically backfilled wherever their
+      // productCode matches exactly one product (an ambiguous code — a pre-existing
+      // duplicate — is left for the Duplicate Code tool to resolve, not guessed here).
+      version: 2,
+      migrate: (persisted, version) => {
+        if (version < 1) return { products: [], stockIns: [], stockOuts: [], importBatches: [] }
+        const products = (persisted.products ?? []).map((p) => (p.id ? p : { ...p, id: genId('PROD') }))
+        const idsByCode = new Map()
+        products.forEach((p) => {
+          const list = idsByCode.get(p.code)
+          if (list) list.push(p.id)
+          else idsByCode.set(p.code, [p.id])
+        })
+        const backfillMovement = (t) => {
+          if (t.productId) return t
+          const ids = idsByCode.get(t.productCode)
+          return ids && ids.length === 1 ? { ...t, productId: ids[0] } : t
+        }
+        return {
+          ...persisted,
+          products,
+          stockIns: (persisted.stockIns ?? []).map(backfillMovement),
+          stockOuts: (persisted.stockOuts ?? []).map(backfillMovement),
+        }
+      },
     },
   ),
 )

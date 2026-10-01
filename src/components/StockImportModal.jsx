@@ -7,6 +7,8 @@ import { parseStockWorkbook, planStockImport } from '../utils/stockImport'
 import { formatNumber, formatMoney } from '../utils/format'
 
 const TITLE = { in: 'นำเข้าไฟล์ยอดยกมา — Stock In', out: 'นำเข้าไฟล์ยอดยกมา — Stock Out' }
+const MOVEMENT_LABEL = { opening_balance: 'ยอดยกมา', in: 'ซื้อ/รับเข้า', out: 'จ่ายออก' }
+const ORDINARY_LABEL = { in: 'รายการซื้อปกติ', out: 'รายการจ่ายออกปกติ' }
 
 export default function StockImportModal({ open, onClose, type }) {
   const products = useStore((s) => s.products)
@@ -14,25 +16,32 @@ export default function StockImportModal({ open, onClose, type }) {
   const applyStockImport = useStore((s) => s.applyStockImport)
   const fileInputRef = useRef(null)
 
-  const [pending, setPending] = useState(null) // { fileName, rows, errors, detectedYear }
+  const [pending, setPending] = useState(null) // { fileName, rows, errors, detectedYear, hasNoteColumn, openingNoteCount }
   const [year, setYear] = useState('')
-  const [result, setResult] = useState(null) // { rowCount, newProductCount, errorCount }
+  const [fallbackType, setFallbackType] = useState('') // '' | 'opening_balance' | 'in' | 'out' — only asked when ambiguous
+  const [result, setResult] = useState(null) // { rowCount, newProductCount, errorCount, byType }
 
   const history = useMemo(
     () => importBatches.filter((b) => b.type === type).sort((a, b) => b.importedAt.localeCompare(a.importedAt)),
     [importBatches, type],
   )
 
+  // Unambiguous only when every row's own หมายเหตุ said ยอดยกมา — anything else (no note
+  // column, blank notes, or only some rows tagged) needs the user to say what the rest are.
+  const ambiguous = pending ? !pending.hasNoteColumn || pending.openingNoteCount < pending.rows.length : false
+  const needsTypeChoice = ambiguous && !fallbackType
+
   const plan = useMemo(() => {
-    if (!pending || !year) return null
-    return planStockImport(products, pending.rows, { year: Number(year) })
-  }, [pending, products, year])
+    if (!pending || !year || needsTypeChoice) return null
+    return planStockImport(products, pending.rows, { year: Number(year), fallbackMovementType: fallbackType || 'opening_balance' })
+  }, [pending, products, year, fallbackType, needsTypeChoice])
 
   const alreadyImportedYear = year && history.some((b) => String(b.year) === String(year))
 
   function reset() {
     setPending(null)
     setYear('')
+    setFallbackType('')
     setResult(null)
   }
 
@@ -58,6 +67,7 @@ export default function StockImportModal({ open, onClose, type }) {
         }
         setPending({ fileName: file.name, ...parsed })
         setYear(parsed.detectedYear ? String(parsed.detectedYear) : '')
+        setFallbackType('')
       } catch {
         alert('ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์')
       }
@@ -80,7 +90,8 @@ export default function StockImportModal({ open, onClose, type }) {
       newProducts: plan.newProducts,
       stockRows: plan.stockRows,
     })
-    setResult({ rowCount: plan.stockRows.length, newProductCount: plan.newProducts.length, errorCount: pending.errors.length })
+    const byType = plan.stockRows.reduce((acc, r) => ({ ...acc, [r.movementType]: (acc[r.movementType] ?? 0) + 1 }), {})
+    setResult({ rowCount: plan.stockRows.length, newProductCount: plan.newProducts.length, errorCount: pending.errors.length, byType })
     setPending(null)
   }
 
@@ -91,8 +102,9 @@ export default function StockImportModal({ open, onClose, type }) {
       {!pending && !result && (
         <div>
           <p className="mb-4 text-sm text-[var(--text-secondary)]">
-            นำเข้าไฟล์ยอดยกมา (Excel/CSV) — ระบบจะอ่านหัวคอลัมน์อัตโนมัติ (รหัส, ชื่อสินค้า, จำนวน, ราคาต่อหน่วย, เป็นเงิน, หมายเหตุ)
-            และข้ามแถวสรุปรวมท้ายไฟล์ให้เอง
+            นำเข้าไฟล์ (Excel/CSV) — ระบบจะอ่านหัวคอลัมน์อัตโนมัติ (รหัส, ชื่อสินค้า, จำนวน, ราคาต่อหน่วย, เป็นเงิน, หมายเหตุ)
+            และข้ามแถวสรุปรวมท้ายไฟล์ให้เอง แถวที่หมายเหตุขึ้นต้นด้วย "ยอดยกมา" จะถูกบันทึกเป็นยอดยกมาของปีนั้นโดยอัตโนมัติ
+            แยกจากรายการ{type === 'in' ? 'ซื้อ' : 'จ่ายออก'}ปกติ
           </p>
           <button
             onClick={handleFilePick}
@@ -133,7 +145,7 @@ export default function StockImportModal({ open, onClose, type }) {
             {formatNumber(pending.totalRowsRead)} แถว
           </div>
 
-          <label className="mb-4 flex items-center gap-3">
+          <label className="mb-4 flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium text-[var(--text-secondary)]">ปีที่นำเข้า (พ.ศ.)</span>
             <input
               type="number"
@@ -148,6 +160,25 @@ export default function StockImportModal({ open, onClose, type }) {
               </span>
             )}
           </label>
+
+          {ambiguous && (
+            <div className="mb-4 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium text-sky-200">
+                  ไฟล์นี้ไม่ได้ระบุ "ยอดยกมา" ชัดเจนทุกแถว — แถวที่เหลือ (ไม่มีหมายเหตุ "ยอดยกมา") คือรายการประเภทใด?
+                </span>
+                <select
+                  value={fallbackType}
+                  onChange={(e) => setFallbackType(e.target.value)}
+                  className={inputClass('w-64')}
+                >
+                  <option value="">— เลือกประเภท —</option>
+                  <option value="opening_balance">ยอดยกมา (Opening Balance)</option>
+                  <option value={type}>{ORDINARY_LABEL[type]}</option>
+                </select>
+              </label>
+            </div>
+          )}
 
           {plan && (
             <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -172,9 +203,10 @@ export default function StockImportModal({ open, onClose, type }) {
 
           {plan && plan.stockRows.length > 0 && (
             <div className="mb-4 max-h-[30vh] overflow-auto rounded-lg border border-[var(--border-color)]">
-              <table className="w-full min-w-[600px] text-xs [&_th]:whitespace-nowrap">
+              <table className="w-full min-w-[640px] text-xs [&_th]:whitespace-nowrap">
                 <thead>
                   <tr className="sticky top-0 bg-[var(--bg-card-alt)] text-left text-[var(--text-secondary)]">
+                    <th className="px-3 py-2 font-medium">ประเภท</th>
                     <th className="px-3 py-2 font-medium">รหัส</th>
                     <th className="px-3 py-2 font-medium">ชื่อสินค้า</th>
                     <th className="px-3 py-2 text-right font-medium">จำนวน</th>
@@ -185,8 +217,11 @@ export default function StockImportModal({ open, onClose, type }) {
                 <tbody>
                   {plan.stockRows.slice(0, 200).map((r, i) => (
                     <tr key={i} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)]">
+                      <td className={`px-3 py-2 font-medium ${r.movementType === 'opening_balance' ? 'text-amber-300' : 'text-[var(--text-secondary)]'}`}>
+                        {MOVEMENT_LABEL[r.movementType]}
+                      </td>
                       <td className="px-3 py-2 font-mono text-[var(--text-accent)]">{r.productCode}</td>
-                      <td className="max-w-[260px] whitespace-normal break-words px-3 py-2">{r.productName}</td>
+                      <td className="max-w-[220px] whitespace-normal break-words px-3 py-2">{r.productName}</td>
                       <td className="px-3 py-2 text-right">{formatNumber(r.qty)}</td>
                       <td className="px-3 py-2 text-right">{formatMoney(r.price)}</td>
                       <td className="px-3 py-2 text-right">{formatMoney(r.total)}</td>
@@ -194,7 +229,7 @@ export default function StockImportModal({ open, onClose, type }) {
                   ))}
                   {plan.stockRows.length > 200 && (
                     <tr>
-                      <td colSpan={5} className="px-3 py-2 text-center text-[var(--text-faint)]">
+                      <td colSpan={6} className="px-3 py-2 text-center text-[var(--text-faint)]">
                         … และอีก {formatNumber(plan.stockRows.length - 200)} รายการ
                       </td>
                     </tr>
@@ -229,6 +264,11 @@ export default function StockImportModal({ open, onClose, type }) {
           </div>
           <ul className="mb-6 space-y-1 text-sm text-[var(--text-secondary)]">
             <li>เพิ่มรายการ Stock {type === 'in' ? 'In' : 'Out'} สำเร็จ: {formatNumber(result.rowCount)} รายการ</li>
+            {Object.entries(result.byType).map(([mt, count]) => (
+              <li key={mt} className="pl-4 text-xs text-[var(--text-muted)]">
+                — {MOVEMENT_LABEL[mt]}: {formatNumber(count)} รายการ
+              </li>
+            ))}
             <li>สร้างสินค้าใหม่ใน Product List: {formatNumber(result.newProductCount)} รายการ</li>
             <li>ข้ามแถวผิดปกติ: {formatNumber(result.errorCount)} รายการ</li>
           </ul>

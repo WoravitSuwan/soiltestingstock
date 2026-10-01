@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, Search, Upload, Download, QrCode } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Upload, Download, QrCode, Copy } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import Modal from '../components/Modal'
 import ProductQrModal from '../components/ProductQrModal'
+import DuplicateCodeModal from '../components/DuplicateCodeModal'
 import Pagination, { usePagination } from '../components/Pagination'
 import MoneyInput from '../components/MoneyInput'
 import FormField, { inputClass } from '../components/FormField'
@@ -22,13 +23,20 @@ export default function ProductList() {
 
   const [query, setQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingCode, setEditingCode] = useState(null)
+  const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [importSummary, setImportSummary] = useState(null)
   const [pendingImport, setPendingImport] = useState(null) // { fileName, rows, fields, duplicates }
   const [replaceAll, setReplaceAll] = useState(false)
   const [qrProduct, setQrProduct] = useState(null)
+  const [dupModalOpen, setDupModalOpen] = useState(false)
   const fileInputRef = useRef(null)
+
+  const duplicateCodeCount = useMemo(() => {
+    const counts = new Map()
+    products.forEach((p) => counts.set(p.code, (counts.get(p.code) ?? 0) + 1))
+    return [...counts.values()].filter((n) => n > 1).length
+  }, [products])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -42,13 +50,13 @@ export default function ProductList() {
   const page = usePagination(filtered, 100, query)
 
   function openCreate() {
-    setEditingCode(null)
+    setEditingId(null)
     setForm(emptyForm)
     setModalOpen(true)
   }
 
   function openEdit(p) {
-    setEditingCode(p.code)
+    setEditingId(p.id)
     setForm({ ...p, unitPrice: String(p.unitPrice), openingQty: String(p.openingQty) })
     setModalOpen(true)
   }
@@ -62,20 +70,19 @@ export default function ProductList() {
       unitPrice: Number(form.unitPrice) || 0,
       openingQty: Number(form.openingQty) || 0,
     }
-    if (editingCode) {
-      updateProduct(editingCode, payload)
-    } else {
-      if (products.some((p) => p.code === payload.code)) {
-        alert('รหัสสินค้านี้มีอยู่แล้ว')
-        return
-      }
-      addProduct(payload)
+    // รหัสสินค้า must stay unique whether adding or editing — editing used to skip this
+    // check entirely, which is exactly how duplicate codes got into the system.
+    if (products.some((p) => p.code === payload.code && p.id !== editingId)) {
+      alert('รหัสสินค้านี้มีอยู่แล้ว')
+      return
     }
+    if (editingId) updateProduct(editingId, payload)
+    else addProduct(payload)
     setModalOpen(false)
   }
 
-  function handleDelete(code) {
-    if (confirm(`ลบสินค้ารหัส ${code} ใช่หรือไม่?`)) deleteProduct(code)
+  function handleDelete(p) {
+    if (confirm(`ลบสินค้ารหัส ${p.code} ใช่หรือไม่?`)) deleteProduct(p.id)
   }
 
   function handleExportExcel() {
@@ -188,6 +195,15 @@ export default function ProductList() {
         </div>
       </div>
 
+      {duplicateCodeCount > 0 && (
+        <button
+          onClick={() => setDupModalOpen(true)}
+          className="mb-4 flex w-full items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-left text-sm text-amber-300 transition hover:bg-amber-500/20"
+        >
+          <Copy size={16} /> พบรหัสสินค้าซ้ำ {duplicateCodeCount} รหัส — กดเพื่อจัดการ (รวม/เปลี่ยนรหัส)
+        </button>
+      )}
+
       {importSummary && (
         <div
           className={`mb-4 rounded-lg px-4 py-2.5 text-sm ${
@@ -214,7 +230,7 @@ export default function ProductList() {
           </thead>
           <tbody>
             {page.pageItems.map((p) => (
-              <tr key={p.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
+              <tr key={p.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                 <td className="px-4 py-3 font-mono text-[var(--text-accent)]">{p.code}</td>
                 <td className="max-w-[320px] whitespace-normal break-words px-4 py-3">{p.name}</td>
                 <td className="px-4 py-3 text-right">{formatNumber(p.openingQty)}</td>
@@ -237,7 +253,7 @@ export default function ProductList() {
                       <Pencil size={15} />
                     </button>
                     <button
-                      onClick={() => handleDelete(p.code)}
+                      onClick={() => handleDelete(p)}
                       title="ลบ"
                       className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-red-500/15 hover:text-red-400"
                     >
@@ -268,6 +284,7 @@ export default function ProductList() {
       />
 
       <ProductQrModal product={qrProduct} onClose={() => setQrProduct(null)} />
+      <DuplicateCodeModal open={dupModalOpen} onClose={() => setDupModalOpen(false)} />
 
       <ImportPreviewModal
         pending={pendingImport}
@@ -278,15 +295,14 @@ export default function ProductList() {
         onConfirm={handleConfirmImport}
       />
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingCode ? 'Edit product' : 'Add product'}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit product' : 'Add product'}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="รหัสสินค้า" required>
             <input
               value={form.code}
-              disabled={!!editingCode}
               placeholder="e.g. STS-E045"
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-              className={inputClass(editingCode ? 'opacity-50' : '')}
+              className={inputClass()}
             />
           </FormField>
           <FormField label="ชื่อสินค้า" required>

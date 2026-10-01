@@ -5,7 +5,7 @@ import ProductPickerModal from '../components/ProductPickerModal'
 import DateTextInput from '../components/DateTextInput'
 import Pagination, { usePagination } from '../components/Pagination'
 import { useStore } from '../store/useStore'
-import { buildItemLedger, buildAllStockSummary, groupByCode } from '../utils/stockCalc'
+import { buildItemLedger, buildAllStockSummary, groupByProduct, movementsForProduct, filterForProduct } from '../utils/stockCalc'
 import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber, thaiCompare } from '../utils/format'
 import { exportAoaToExcel, exportElementToPdf } from '../utils/export'
@@ -161,20 +161,18 @@ function ItemLedgerReport() {
 
   const singleLedger = useMemo(() => {
     if (!selected || selected === 'ALL') return null
-    return buildItemLedger(selected, stockIns, stockOuts, bounds)
+    return buildItemLedger(selected, filterForProduct(stockIns, selected), filterForProduct(stockOuts, selected), bounds)
   }, [selected, stockIns, stockOuts, bounds])
 
   // With ~10k products, "ALL" defaults to products that actually have movements.
   const allLedgers = useMemo(() => {
     if (selected !== 'ALL') return null
-    const insByCode = groupByCode(stockIns)
-    const outsByCode = groupByCode(stockOuts)
+    const insByProduct = groupByProduct(stockIns)
+    const outsByProduct = groupByProduct(stockOuts)
     return sortedProducts
-      .filter((p) => includeIdle || insByCode.has(p.code) || outsByCode.has(p.code))
-      .map((p) => ({
-        product: p,
-        ledger: buildItemLedger(p, insByCode.get(p.code) ?? [], outsByCode.get(p.code) ?? [], bounds),
-      }))
+      .map((p) => ({ product: p, ins: movementsForProduct(insByProduct, p), outs: movementsForProduct(outsByProduct, p) }))
+      .filter(({ ins, outs }) => includeIdle || ins.length > 0 || outs.length > 0)
+      .map(({ product, ins, outs }) => ({ product, ledger: buildItemLedger(product, ins, outs, bounds) }))
   }, [selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds])
   const ledgerPage = usePagination(allLedgers ?? [], 100, `${selected === 'ALL'}-${includeIdle}`)
 
@@ -271,7 +269,7 @@ function ItemLedgerReport() {
         <div ref={printRef} className="flex flex-col gap-6">
           {selected === 'ALL'
             ? ledgerPage.pageItems.map(({ product, ledger }) => (
-                <ItemLedgerTable key={product.code} product={product} ledger={ledger} from={range.from} />
+                <ItemLedgerTable key={product.id} product={product} ledger={ledger} from={range.from} />
               ))
             : singleLedger && <ItemLedgerTable product={selected} ledger={singleLedger} from={range.from} />}
           {selected === 'ALL' && allLedgers.length === 0 && (
@@ -341,9 +339,9 @@ function ItemLedgerTable({ product, ledger, from }) {
             </tr>
           </thead>
           <tbody>
-            {from && (
+            {(from || ledger.opening.qty !== 0 || ledger.opening.value !== 0) && (
             <tr className="border-t border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
-              <td className="px-2 py-2 font-semibold">{toThaiDate(from)}</td>
+              <td className="px-2 py-2 font-semibold">{from ? toThaiDate(from) : '-'}</td>
               <td className="px-2 py-2 font-semibold">ยอดยกมา</td>
               <td colSpan={6}></td>
               <td className={`${numCell} font-semibold`}>{formatNumber(ledger.opening.qty)}</td>
@@ -513,7 +511,7 @@ function AllStockSummaryReport() {
             </thead>
             <tbody>
               {summaryPage.pageItems.map((r) => (
-                <tr key={r.code} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
+                <tr key={r.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
                   <td className="whitespace-nowrap px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
                   <td className="max-w-[260px] whitespace-normal break-words px-2 py-2">{r.name}</td>
                   <td className={`${numCell} text-red-400`}>{formatNumber(r.opening.qty)}</td>

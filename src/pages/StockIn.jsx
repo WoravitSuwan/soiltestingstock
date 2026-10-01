@@ -17,6 +17,7 @@ function makeEmptyForm() {
   return {
     date: todayDDMMYYYY(),
     productCode: '',
+    productId: '',
     productName: '',
     supplier: '',
     po: '',
@@ -26,6 +27,7 @@ function makeEmptyForm() {
     soLot: '',
     customer: '',
     note: '',
+    movementType: 'in',
   }
 }
 
@@ -64,9 +66,9 @@ export default function StockIn() {
   // Entering a code pops in the name and unit price from PRODUCT LIST; ราคารวม follows.
   function handleProductSelect(code, match) {
     setForm((f) => {
-      if (!match) return { ...f, productCode: code, productName: '' }
+      if (!match) return { ...f, productCode: code, productId: '', productName: '' }
       const price = String(Number(match.unitPrice) || 0)
-      return { ...f, productCode: code, productName: match.name, price, total: lineTotal(f.qty, price) }
+      return { ...f, productCode: code, productId: match.id, productName: match.name, price, total: lineTotal(f.qty, price) }
     })
   }
 
@@ -87,6 +89,9 @@ export default function StockIn() {
       qty: Number(form.qty) || 0,
       price: Number(form.price) || 0,
       total: Number(form.total) || 0,
+      // Preserve an imported row's movementType (e.g. opening_balance) when editing it
+      // here — this ordinary form only ever creates new rows as 'in'.
+      movementType: form.movementType || 'in',
     }
     if (editingId) updateStockIn(editingId, payload)
     else addStockIn(payload)
@@ -100,6 +105,7 @@ export default function StockIn() {
     setForm({
       date: row.date,
       productCode: row.productCode,
+      productId: row.productId ?? '',
       productName: row.productName,
       supplier: row.supplier ?? '',
       po: row.po ?? '',
@@ -109,6 +115,7 @@ export default function StockIn() {
       soLot: row.soLot ?? '',
       customer: row.customer ?? '',
       note: row.note ?? '',
+      movementType: row.movementType || 'in',
     })
   }
 
