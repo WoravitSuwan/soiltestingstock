@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx'
 import { codeText, cleanText, toNumber } from './productImport'
 import { fromThaiDate, isValidDDMMYYYY, todayDDMMYYYY } from './date'
 import { lineTotal } from './format'
-import { genId } from './id'
+import { genUuid } from './id'
 
 const HEADER_MAP = {
   code: ['รหัส', 'รหัสสินค้า', 'code'],
@@ -162,7 +162,7 @@ export function planStockImport(products, rows, { year, fallbackMovementType = '
     let productId = existingByCode.get(row.code)?.id
     if (!productId) {
       if (!newIdByCode.has(row.code)) {
-        const id = genId('PROD')
+        const id = genUuid()
         newIdByCode.set(row.code, id)
         newProducts.push({ id, code: row.code, name: row.name || row.code, unit: 'EA', unitPrice: row.unitPrice, openingQty: 1 })
       }

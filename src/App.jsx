@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import StockIn from './pages/StockIn'
 import StockOut from './pages/StockOut'
@@ -9,6 +10,32 @@ import ProductList from './pages/ProductList'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useThemeStore } from './store/useThemeStore'
+import { useStore } from './store/useStore'
+
+// Gates the data-driven pages behind the initial Supabase fetch so they don't flash an
+// empty "ไม่พบสินค้า" state before the first load resolves.
+function RequireData({ children }) {
+  const loading = useStore((s) => s.loading)
+  const error = useStore((s) => s.error)
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[var(--bg-page)] px-4 text-center">
+        <AlertTriangle className="text-red-400" size={32} />
+        <p className="font-semibold text-red-400">เชื่อมต่อฐานข้อมูลไม่สำเร็จ</p>
+        <p className="max-w-md text-sm text-[var(--text-secondary)]">{error}</p>
+      </div>
+    )
+  }
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-2 bg-[var(--bg-page)] text-[var(--text-secondary)]">
+        <Loader2 className="animate-spin" size={18} /> กำลังโหลดข้อมูล...
+      </div>
+    )
+  }
+  return children
+}
 
 export default function App() {
   const theme = useThemeStore((s) => s.theme)
@@ -17,6 +44,10 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
+  useEffect(() => {
+    useStore.getState().init()
+  }, [])
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -24,7 +55,9 @@ export default function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <RequireData>
+              <Dashboard />
+            </RequireData>
           </ProtectedRoute>
         }
       />
@@ -32,7 +65,9 @@ export default function App() {
         path="/stock-in"
         element={
           <ProtectedRoute>
-            <StockIn />
+            <RequireData>
+              <StockIn />
+            </RequireData>
           </ProtectedRoute>
         }
       />
@@ -40,7 +75,9 @@ export default function App() {
         path="/stock-out"
         element={
           <ProtectedRoute>
-            <StockOut />
+            <RequireData>
+              <StockOut />
+            </RequireData>
           </ProtectedRoute>
         }
       />
@@ -48,7 +85,9 @@ export default function App() {
         path="/stock"
         element={
           <ProtectedRoute>
-            <Stock />
+            <RequireData>
+              <Stock />
+            </RequireData>
           </ProtectedRoute>
         }
       />
@@ -56,7 +95,9 @@ export default function App() {
         path="/reports"
         element={
           <ProtectedRoute>
-            <Reports />
+            <RequireData>
+              <Reports />
+            </RequireData>
           </ProtectedRoute>
         }
       />
@@ -64,7 +105,9 @@ export default function App() {
         path="/products"
         element={
           <ProtectedRoute>
-            <ProductList />
+            <RequireData>
+              <ProductList />
+            </RequireData>
           </ProtectedRoute>
         }
       />

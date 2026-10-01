@@ -66,3 +66,18 @@ export function fromThaiDate(value) {
   const ce = `${pad2(m[1])}/${pad2(m[2])}/${year >= BE_THRESHOLD ? year - BE_OFFSET : year}`
   return isValidDDMMYYYY(ce) ? ce : null
 }
+
+// ---------- ISO (Supabase `date` columns) <-> stored DD/MM/YYYY (ค.ศ.) ----------
+export function ceToISO(value) {
+  if (!isValidDDMMYYYY(value)) return null
+  const m = DATE_RE.exec(value.trim())
+  return `${m[3]}-${pad2(m[2])}-${pad2(m[1])}`
+}
+
+const ISO_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+export function isoToCE(value) {
+  const m = ISO_RE.exec(String(value ?? '').trim())
+  if (!m) return null
+  const ce = `${m[3]}/${m[2]}/${m[1]}`
+  return isValidDDMMYYYY(ce) ? ce : null
+}
