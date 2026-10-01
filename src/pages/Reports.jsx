@@ -183,21 +183,30 @@ function ItemLedgerReport() {
     blocks.forEach(({ product, ledger }) => {
       aoa.push([])
       aoa.push([`รหัสสินค้า: ${product.code}`, '', `ชื่อสินค้า: ${product.name}`])
-      aoa.push(['วันที่', 'เลขเอกสาร', 'รับ-จำนวน', 'รับ-ราคา', 'รับ-มูลค่า', 'จ่าย-จำนวน', 'จ่าย-ราคา', 'จ่าย-มูลค่า', 'คงเหลือ-จำนวน', 'คงเหลือ-ราคา', 'คงเหลือ-มูลค่า', 'ผู้ขาย/ลูกค้า', 'หมายเหตุ'])
-      if (range.from) {
-        aoa.push([toThaiDate(range.from), 'ยอดยกมา', '', '', '', '', '', '', ledger.opening.qty, avgPrice(ledger.opening), ledger.opening.value, '', ''])
-      }
+      aoa.push([
+        'วันที่', 'เลขเอกสาร',
+        'ยอดยกมา-จำนวน', 'ยอดยกมา-ราคา', 'ยอดยกมา-มูลค่า',
+        'รับ-จำนวน', 'รับ-ราคา', 'รับ-มูลค่า',
+        'จ่าย-จำนวน', 'จ่าย-ราคา', 'จ่าย-มูลค่า',
+        'คงเหลือ-จำนวน', 'คงเหลือ-ราคา', 'คงเหลือ-มูลค่า',
+        'ผู้ขาย/ลูกค้า', 'หมายเหตุ',
+      ])
       ledger.rows.forEach((r) => {
-        const isIn = r.kind === 'in'
+        const isOpening = r.group === 'opening'
+        const isIn = r.group === 'in'
+        const isOut = r.group === 'out'
         aoa.push([
-          toThaiDate(r.date),
+          r.date ? toThaiDate(r.date) : '-',
           r.docNo,
+          isOpening ? r.qty : '',
+          isOpening ? r.price : '',
+          isOpening ? r.value : '',
           isIn ? r.qty : '',
           isIn ? r.price : '',
           isIn ? r.value : '',
-          isIn ? '' : r.qty,
-          isIn ? '' : r.price,
-          isIn ? '' : r.value,
+          isOut ? r.qty : '',
+          isOut ? r.price : '',
+          isOut ? r.value : '',
           r.balanceQty,
           r.balancePrice,
           r.balanceValue,
@@ -205,7 +214,14 @@ function ItemLedgerReport() {
           [r.note, r.isReservation ? 'จองสินค้า (SO)' : ''].filter(Boolean).join(' '),
         ])
       })
-      aoa.push(['สรุปรายงานสินค้าคงเหลือ', '', ledger.totalIn.qty, '', ledger.totalIn.value, ledger.totalOut.qty, '', ledger.totalOut.value, ledger.closing.qty, '', ledger.closing.value, '', ''])
+      aoa.push([
+        'สรุปรายงานสินค้าคงเหลือ', '',
+        ledger.opening.qty, '', ledger.opening.value,
+        ledger.totalIn.qty, '', ledger.totalIn.value,
+        ledger.totalOut.qty, '', ledger.totalOut.value,
+        ledger.closing.qty, '', ledger.closing.value,
+        '', '',
+      ])
     })
     const filename = selected === 'ALL' ? 'item-ledger-all.xlsx' : `item-ledger-${selected.code}.xlsx`
     exportAoaToExcel(aoa, filename, 'ItemLedger')
@@ -269,9 +285,9 @@ function ItemLedgerReport() {
         <div ref={printRef} className="flex flex-col gap-6">
           {selected === 'ALL'
             ? ledgerPage.pageItems.map(({ product, ledger }) => (
-                <ItemLedgerTable key={product.id} product={product} ledger={ledger} from={range.from} />
+                <ItemLedgerTable key={product.id} product={product} ledger={ledger} />
               ))
-            : singleLedger && <ItemLedgerTable product={selected} ledger={singleLedger} from={range.from} />}
+            : singleLedger && <ItemLedgerTable product={selected} ledger={singleLedger} />}
           {selected === 'ALL' && allLedgers.length === 0 && (
             <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] py-16 text-center text-sm text-[var(--text-faint)]">
               ยังไม่มีสินค้าที่มีรายการรับ-จ่าย
@@ -301,13 +317,9 @@ function rangeLabel({ from, to }) {
   return ` (${from ? toThaiDate(from) : 'เริ่มต้น'} - ${to ? toThaiDate(to) : 'ปัจจุบัน'})`
 }
 
-function avgPrice({ qty, value }) {
-  return qty !== 0 ? value / qty : 0
-}
-
 const numCell = 'px-2 py-2 text-right'
 
-function ItemLedgerTable({ product, ledger, from }) {
+function ItemLedgerTable({ product, ledger }) {
   return (
     <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
       <div className="mb-1 text-center text-lg font-bold text-[var(--text-primary)]">รายงานสินค้าและวัตถุดิบ</div>
@@ -321,56 +333,53 @@ function ItemLedgerTable({ product, ledger, from }) {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-        <table className="w-full min-w-[1100px] text-xs [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+        <table className="w-full min-w-[1350px] text-xs [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
           <thead>
             <tr className="bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">วันที่</th>
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">เลขเอกสาร</th>
+              <th colSpan={3} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-amber-300">ยอดยกมา</th>
               <th colSpan={3} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-emerald-300">รายการรับ</th>
               <th colSpan={3} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-sky-300">รายการจ่าย</th>
               <th colSpan={3} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">คงเหลือ</th>
               <th className="border-b border-[var(--border-color)] px-2 py-2 text-left text-violet-300">รายละเอียด</th>
             </tr>
             <tr className="bg-[var(--bg-surface-soft)] text-right text-[var(--text-muted)]">
-              {['จำนวน', 'ราคา', 'มูลค่า', 'จำนวน', 'ราคา', 'มูลค่า', 'จำนวน', 'ราคา', 'มูลค่า'].map((h, i) => (
+              {['จำนวน', 'ราคา', 'มูลค่า', 'จำนวน', 'ราคา', 'มูลค่า', 'จำนวน', 'ราคา', 'มูลค่า', 'จำนวน', 'ราคา', 'มูลค่า'].map((h, i) => (
                 <th key={i} className="px-2 py-1.5 font-medium">{h}</th>
               ))}
               <th className="px-2 py-1.5 text-left font-medium text-violet-300">ผู้ขาย/ลูกค้า</th>
             </tr>
           </thead>
           <tbody>
-            {(from || ledger.opening.qty !== 0 || ledger.opening.value !== 0) && (
-            <tr className="border-t border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
-              <td className="px-2 py-2 font-semibold">{from ? toThaiDate(from) : '-'}</td>
-              <td className="px-2 py-2 font-semibold">ยอดยกมา</td>
-              <td colSpan={6}></td>
-              <td className={`${numCell} font-semibold`}>{formatNumber(ledger.opening.qty)}</td>
-              <td className={`${numCell} font-semibold`}>{formatMoney(avgPrice(ledger.opening))}</td>
-              <td className={`${numCell} font-semibold`}>{formatMoney(ledger.opening.value)}</td>
-              <td></td>
-            </tr>
-            )}
             {ledger.rows.map((r, idx) => {
-              const isIn = r.kind === 'in'
+              const isOpening = r.group === 'opening'
+              const isIn = r.group === 'in'
+              const isOut = r.group === 'out'
               return (
                 <tr
                   key={idx}
                   className={`border-t border-[var(--border-color-soft)] hover:bg-[var(--bg-hover)] ${
                     r.isReservation
                       ? 'bg-amber-400/20 text-amber-200'
+                      : isOpening
+                      ? 'text-amber-300'
                       : isIn
                       ? 'text-emerald-300'
                       : 'text-[var(--text-primary)]'
                   }`}
                 >
-                  <td className="px-2 py-2">{toThaiDate(r.date)}</td>
+                  <td className="px-2 py-2">{r.date ? toThaiDate(r.date) : '-'}</td>
                   <td className="px-2 py-2">{r.docNo}</td>
+                  <td className={numCell}>{isOpening ? formatNumber(r.qty) : ''}</td>
+                  <td className={numCell}>{isOpening ? formatMoney(r.price) : ''}</td>
+                  <td className={numCell}>{isOpening ? formatMoney(r.value) : ''}</td>
                   <td className={numCell}>{isIn ? formatNumber(r.qty) : ''}</td>
                   <td className={numCell}>{isIn ? formatMoney(r.price) : ''}</td>
                   <td className={numCell}>{isIn ? formatMoney(r.value) : ''}</td>
-                  <td className={numCell}>{isIn ? '' : formatNumber(r.qty)}</td>
-                  <td className={numCell}>{isIn ? '' : formatMoney(r.price)}</td>
-                  <td className={numCell}>{isIn ? '' : formatMoney(r.value)}</td>
+                  <td className={numCell}>{isOut ? formatNumber(r.qty) : ''}</td>
+                  <td className={numCell}>{isOut ? formatMoney(r.price) : ''}</td>
+                  <td className={numCell}>{isOut ? formatMoney(r.value) : ''}</td>
                   <td className={`${numCell} font-medium`}>{formatNumber(r.balanceQty)}</td>
                   <td className={`${numCell} font-medium`}>{formatMoney(r.balancePrice)}</td>
                   <td className={`${numCell} font-medium`}>{formatMoney(r.balanceValue)}</td>
@@ -388,7 +397,7 @@ function ItemLedgerTable({ product, ledger, from }) {
             })}
             {ledger.rows.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-2 py-6 text-center text-[var(--text-faint)]">
+                <td colSpan={15} className="px-2 py-6 text-center text-[var(--text-faint)]">
                   ไม่มีรายการเคลื่อนไหว
                 </td>
               </tr>
@@ -397,6 +406,9 @@ function ItemLedgerTable({ product, ledger, from }) {
           <tfoot>
             <tr className="border-t-2 border-[var(--border-color)] bg-amber-500/10 font-bold text-red-400">
               <td className="px-2 py-2.5" colSpan={2}>สรุปรายงานสินค้าคงเหลือ</td>
+              <td className={numCell}>{formatNumber(ledger.opening.qty)}</td>
+              <td className={numCell}>-</td>
+              <td className={numCell}>{formatMoney(ledger.opening.value)}</td>
               <td className={numCell}>{formatNumber(ledger.totalIn.qty)}</td>
               <td className={numCell}>-</td>
               <td className={numCell}>{formatMoney(ledger.totalIn.value)}</td>

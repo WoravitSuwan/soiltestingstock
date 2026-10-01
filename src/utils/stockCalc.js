@@ -77,36 +77,39 @@ export function currentBalance(product, stockIns, stockOuts) {
 // must already be filtered to this one product (via filterForProduct or
 // movementsForProduct) — this function does not match by code/id itself.
 //
-// "ยอดยกมา" (opening) is made of two things, both excluded from the itemized rows:
-//   - every movement tagged movementType: 'opening_balance' (imported ยอดยกมา rows),
-//     regardless of its own date — it's a carried-forward balance, not a dated movement
-//   - ordinary ('in' / 'out') movements dated before `fromSortable`, rolled up the same
-//     way a paper ledger folds prior pages into a starting balance
-// Only ordinary movements inside [fromSortable, toSortable] appear as line items and
-// count toward "ซื้อ"/"ออก" for the period.
+// Every movement becomes one itemized row tagged with a `group` ('opening' | 'in' |
+// 'out') so the table can show it under the right column set:
+//   - movementType: 'opening_balance' rows (imported ยอดยกมา) always land in the
+//     'opening' group, keeping their own date — they're a carried-forward balance,
+//     never counted as an ordinary purchase/issue.
+//   - ordinary ('in' / 'out') movements dated before `fromSortable` are rolled up into
+//     a single synthetic 'opening' row (same as a paper ledger folding prior pages into
+//     a starting balance) instead of listing each one.
+//   - ordinary movements inside [fromSortable, toSortable] appear as their own 'in'/'out'
+//     row and count toward "ซื้อ"/"ออก" for the period.
+// "คงเหลือ" on each row is a running balance: cumulative opening + cumulative in -
+// cumulative out, computed row by row in date order.
 export function buildItemLedger(product, stockIns, stockOuts, { fromSortable, toSortable } = {}) {
   const rows = []
-  const opening = { qty: 0, value: 0 }
+  const preRangeRollup = { qty: 0, value: 0 }
 
   function consume(list, kind) {
     list.forEach((t) => {
       const qty = Number(t.qty) || 0
       const value = Number(t.total) || 0
-      const sign = kind === 'in' ? 1 : -1
-      if (t.movementType === 'opening_balance') {
-        opening.qty += sign * qty
-        opening.value += sign * value
-        return
-      }
       const sortable = ddmmyyyyToSortable(t.date) ?? 0
-      if (fromSortable != null && sortable < fromSortable) {
-        opening.qty += sign * qty
-        opening.value += sign * value
+      const isOpening = t.movementType === 'opening_balance'
+
+      if (!isOpening && fromSortable != null && sortable < fromSortable) {
+        const sign = kind === 'in' ? 1 : -1
+        preRangeRollup.qty += sign * qty
+        preRangeRollup.value += sign * value
         return
       }
-      if (toSortable != null && sortable > toSortable) return
+      if (!isOpening && toSortable != null && sortable > toSortable) return
+
       rows.push({
-        kind,
+        group: isOpening ? 'opening' : kind,
         date: t.date,
         sortable,
         docNo: kind === 'in' ? t.po || '-' : t.invoice || t.so || '-',
@@ -115,46 +118,60 @@ export function buildItemLedger(product, stockIns, stockOuts, { fromSortable, to
         value,
         party: kind === 'in' ? t.supplier || '-' : t.customer || '-',
         note: t.note || '',
-        isReservation: kind === 'out' && !!t.so && !t.invoice,
+        isReservation: !isOpening && kind === 'out' && !!t.so && !t.invoice,
       })
     })
   }
   consume(stockIns, 'in')
   consume(stockOuts, 'out')
 
+  if (preRangeRollup.qty !== 0 || preRangeRollup.value !== 0) {
+    rows.push({
+      group: 'opening',
+      date: null,
+      sortable: (fromSortable ?? 0) - 1,
+      docNo: 'ยอดยกมา',
+      qty: preRangeRollup.qty,
+      price: preRangeRollup.qty !== 0 ? preRangeRollup.value / preRangeRollup.qty : 0,
+      value: preRangeRollup.value,
+      party: '',
+      note: '',
+      isReservation: false,
+    })
+  }
+
   rows.sort((a, b) => a.sortable - b.sortable)
 
-  let balQty = opening.qty
-  let balValue = opening.value
+  const openingCum = { qty: 0, value: 0 }
+  const inCum = { qty: 0, value: 0 }
+  const outCum = { qty: 0, value: 0 }
   const ledger = rows.map((r) => {
-    if (r.kind === 'in') {
-      balQty += r.qty
-      balValue += r.value
+    if (r.group === 'opening') {
+      openingCum.qty += r.qty
+      openingCum.value += r.value
+    } else if (r.group === 'in') {
+      inCum.qty += r.qty
+      inCum.value += r.value
     } else {
-      balQty -= r.qty
-      balValue -= r.value
+      outCum.qty += r.qty
+      outCum.value += r.value
     }
+    const balanceQty = openingCum.qty + inCum.qty - outCum.qty
+    const balanceValue = openingCum.value + inCum.value - outCum.value
     return {
       ...r,
-      balanceQty: balQty,
-      balanceValue: balValue,
-      balancePrice: balQty !== 0 ? balValue / balQty : 0,
+      balanceQty,
+      balanceValue,
+      balancePrice: balanceQty !== 0 ? balanceValue / balanceQty : 0,
     }
   })
 
-  const totalIn = rows
-    .filter((r) => r.kind === 'in')
-    .reduce((acc, r) => ({ qty: acc.qty + r.qty, value: acc.value + r.value }), { qty: 0, value: 0 })
-  const totalOut = rows
-    .filter((r) => r.kind === 'out')
-    .reduce((acc, r) => ({ qty: acc.qty + r.qty, value: acc.value + r.value }), { qty: 0, value: 0 })
-
   return {
-    opening,
+    opening: { ...openingCum },
     rows: ledger,
-    closing: { qty: balQty, value: balValue },
-    totalIn,
-    totalOut,
+    closing: { qty: openingCum.qty + inCum.qty - outCum.qty, value: openingCum.value + inCum.value - outCum.value },
+    totalIn: { ...inCum },
+    totalOut: { ...outCum },
   }
 }
 
